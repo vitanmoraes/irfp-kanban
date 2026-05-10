@@ -1,0 +1,44 @@
+[
+  {
+    "id": "manual_irpf",
+    "title": "Manual IRPF Avenue 2026",
+    "filename": "manual_irpf.md",
+    "category": "EXTERIOR",
+    "keywords": ["Avenue", "Exterior", "Stocks", "ETFs", "Bens e Direitos", "Lei 14.754/2023"]
+  },
+  {
+    "id": "pr_irpf_2026",
+    "title": "Perguntas e Respostas IRPF 2026 (RFB)",
+    "filename": "p_r_irpf_2026___v1_00___2026_04_23.md",
+    "category": "LEGISLACAO",
+    "keywords": ["Receita Federal", "P&R", "Legislação", "Dúvidas", "Oficial"]
+  },
+  {
+    "id": "invest_exterior",
+    "title": "Guia Investimentos Exterior v3",
+    "filename": "guiapratico_investimentosexterior_v3.md",
+    "category": "EXTERIOR",
+    "keywords": ["Investimentos", "Dólar", "Offshore", "Taxação"]
+  },
+  {
+    "id": "dividendos",
+    "title": "Tributação de Dividendos",
+    "filename": "tributac_a_o_de_dividendos_31_mar.md",
+    "category": "INVESTIMENTOS",
+    "keywords": ["Dividendos", "FIIs", "Ações", "Tributação"]
+  },
+  {
+    "id": "nomad_guia",
+    "title": "Guia Nomad IR Exterior",
+    "filename": "nomad_guia_ir_exterior.md",
+    "category": "EXTERIOR",
+    "keywords": ["Nomad", "Conta Corrente", "Exterior", "Câmbio"]
+  },
+  {
+    "id": "infomoney_guia",
+    "title": "InfoMoney - Guia Imposto de Renda",
+    "filename": "infomoney___guia_imposto_de_renda.md",
+    "category": "GERAL",
+    "keywords": ["Guia", "Geral", "Dicas", "InfoMoney"]
+  }
+]
