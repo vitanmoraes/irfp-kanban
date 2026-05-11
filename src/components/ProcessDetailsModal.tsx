@@ -6,24 +6,31 @@ import {
   X, CheckCircle2, FileText, MessageCircle, User, Users,
   Shield, Target, Layout, ListChecks, Keyboard, 
   Search, Scale, Send, PlusCircle, History,
-  AlertTriangle, DollarSign
+  AlertTriangle, DollarSign, XCircle, Clock, Plus
 } from 'lucide-react';
 import { IRPF_PROCESS } from '../data/irpfProcess';
 import { 
   COMPLEXITY_COLORS, COMPLEXITY_LABELS, 
-  RISK_COLORS, RISK_LABELS,
-  DOC_STATUS_COLORS, DOC_STATUS_LABELS 
+  RISK_COLORS, RISK_LABELS
 } from '../utils/scoreCalculator';
 import { gateProgress } from '../utils/gateValidator';
 import { COMMUNICATION_TEMPLATES } from '../utils/communicationManager';
 import { calculateSuggestedFee } from '../utils/financialManager';
+
+const DOCUMENT_CATEGORIES = [
+  'CADASTRO', 'RENDIMENTOS_PJ', 'RENDIMENTOS_PF', 'RENDIMENTOS_RV', 
+  'RENDIMENTOS_ISENTOS', 'SAUDE', 'EDUCACAO', 'PREVIDENCIA', 
+  'PENSAO', 'BENS_IMOVEIS', 'BENS_MOVEIS', 'BENS_FINANCEIROS', 
+  'BENS_BOLSA', 'BENS_SOCIOS', 'BENS_EXTERIOR', 'OUTROS'
+];
 
 interface Props {
   card: IRPFCard;
   columnId: string;
   isOpen: boolean;
   onClose: () => void;
-  onToggleTask: (taskId: string) => void;
+  onUpdateSubTask?: (taskId: string, updates: any) => void;
+  onAddSubTask?: (cardId: string, task: any) => void;
   onUpdateCard: (updates: Partial<IRPFCard>) => void;
   onAddCommunication: (cardId: string, entry: any) => void;
   onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
@@ -90,10 +97,12 @@ const ExecutorSelector = ({
 };
 
 export const ProcessDetailsModal: React.FC<Props> = ({ 
-  card, columnId, isOpen, onClose, onToggleTask, onUpdateCard, onAddCommunication, onAddAuditEntry, groups, collaborators 
+  card, columnId, isOpen, onClose, onUpdateSubTask, onAddSubTask, onUpdateCard, onAddCommunication, onAddAuditEntry, groups, collaborators 
 }) => {
 
   const [activeTab, setActiveTab] = useState<TabId>('resumo');
+  const [isAddingDoc, setIsAddingDoc] = useState(false);
+  const [newDoc, setNewDoc] = useState({ title: '', category: 'OUTROS', instruction: '', required: false });
 
   
   // Body & HTML Scroll Lock Avançado
@@ -263,38 +272,154 @@ export const ProcessDetailsModal: React.FC<Props> = ({
       
       case 'documentos':
         return (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
             <ExecutorSelector card={card} stage="preparation" label="Responsável pela Preparação / Checklist" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
+            
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Checklist de Documentação</h3>
-              <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold ${DOC_STATUS_COLORS[card.statusDoc]}`}>
-                {DOC_STATUS_LABELS[card.statusDoc]}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {card.subTasks.map((task) => (
-                <div 
-                  key={task.id}
-                  onClick={() => onToggleTask(task.id)}
-                  className={`group flex items-center gap-3 p-4 rounded-xl border transition-all cursor-pointer ${task.completed ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/5 border-white/10 hover:border-white/20'}`}
-                >
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 transition-all ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600 group-hover:border-blue-500/50'}`}>
-                    {task.completed && <CheckCircle2 size={12} className="text-white" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[11px] font-bold leading-tight ${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
-                      {task.title} {task.required && <span className="text-red-400 ml-1">*</span>}
-                    </p>
-                    {task.instruction && !task.completed && (
-                      <p className="text-[10px] text-slate-400 mt-1 italic leading-snug">
-                        {task.instruction}
-                      </p>
-                    )}
-                    <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1 block">{task.category}</span>
-                  </div>
-
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <FileText size={18} />
                 </div>
-              ))}
+                <h3 className="text-lg font-bold text-white">Checklist de Documentação</h3>
+              </div>
+              <button 
+                onClick={() => setIsAddingDoc(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
+              >
+                <Plus size={16} /> Adicionar Documento
+              </button>
+            </div>
+
+            {/* Formulário de Novo Documento */}
+            {isAddingDoc && (
+              <div className="glass-morphism p-6 rounded-3xl border border-indigo-500/30 mb-6 animate-in zoom-in-95">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-sm font-bold text-white">Novo Documento</h4>
+                  <button onClick={() => setIsAddingDoc(false)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 ml-1">Título do Documento</label>
+                    <input 
+                      type="text" 
+                      value={newDoc.title}
+                      onChange={(e) => setNewDoc({ ...newDoc, title: e.target.value })}
+                      placeholder="Ex: Informe de Rendimentos Banco X"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 ml-1">Categoria</label>
+                    <select 
+                      value={newDoc.category}
+                      onChange={(e) => setNewDoc({ ...newDoc, category: e.target.value })}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      style={{ backgroundColor: '#0f172a' }}
+                    >
+                      {DOCUMENT_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat} style={{ backgroundColor: '#0f172a' }}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1.5 ml-1">Instrução / Observação</label>
+                  <textarea 
+                    value={newDoc.instruction}
+                    onChange={(e) => setNewDoc({ ...newDoc, instruction: e.target.value })}
+                    placeholder="Orientações específicas sobre este documento..."
+                    className="w-full h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={newDoc.required}
+                      onChange={(e) => setNewDoc({ ...newDoc, required: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/10 bg-white/5 text-indigo-500 focus:ring-offset-slate-900"
+                    />
+                    <span className="text-xs text-slate-400 font-bold">Documento Obrigatório</span>
+                  </label>
+                  <button 
+                    onClick={() => {
+                      if (!newDoc.title) return alert('Informe o título');
+                      onAddSubTask?.(card.id, newDoc);
+                      setIsAddingDoc(false);
+                      setNewDoc({ title: '', category: 'OUTROS', instruction: '', required: false });
+                    }}
+                    className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                  >
+                    Salvar Documento
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {card.subTasks.map((task) => {
+                const status = task.docStatus || (task.completed ? 'RECEBIDO' : 'PENDENTE');
+                return (
+                  <div 
+                    key={task.id}
+                    className={`flex flex-col p-5 rounded-3xl border transition-all 
+                      ${status === 'RECEBIDO' ? 'bg-emerald-500/5 border-emerald-500/20' : 
+                        status === 'NAO_POSSUI' ? 'bg-orange-500/5 border-orange-500/20' : 
+                        'bg-white/5 border-white/10'}`}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className={`text-xs font-bold ${status === 'PENDENTE' ? 'text-white' : 'text-slate-400'}`}>
+                            {task.title}
+                          </p>
+                          {task.required && <span className="text-[8px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold border border-red-500/20">OBRIGATÓRIO</span>}
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{task.category}</span>
+                      </div>
+                      
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => {
+                            console.log('Alterando status para RECEBIDO', task.id);
+                            onUpdateSubTask?.(task.id, { completed: true, docStatus: 'RECEBIDO' });
+                          }}
+                          className={`p-2 rounded-lg transition-all ${status === 'RECEBIDO' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white/5 text-slate-500 hover:bg-emerald-500/10'}`}
+                          title="Recebido"
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            console.log('Alterando status para NAO_POSSUI', task.id);
+                            onUpdateSubTask?.(task.id, { completed: true, docStatus: 'NAO_POSSUI' });
+                          }}
+                          className={`p-2 rounded-lg transition-all ${status === 'NAO_POSSUI' ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-white/5 text-slate-500 hover:bg-orange-500/10'}`}
+                          title="Não Possui"
+                        >
+                          <XCircle size={16} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            console.log('Alterando status para PENDENTE', task.id);
+                            onUpdateSubTask?.(task.id, { completed: false, docStatus: 'PENDENTE' });
+                          }}
+                          className={`p-2 rounded-lg transition-all ${status === 'PENDENTE' ? 'bg-slate-700 text-white shadow-lg shadow-slate-700/20' : 'bg-white/5 text-slate-500 hover:bg-white/10'}`}
+                          title="Pendente / Reabrir"
+                        >
+                          <Clock size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {task.instruction && (
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px] text-slate-500 italic leading-relaxed">
+                        {task.instruction}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

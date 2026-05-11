@@ -154,6 +154,7 @@ export interface SubTask {
   assignedTo?: string;   // ID do colaborador
   instruction?: string;
   required?: boolean;    // item obrigatório para gate
+  docStatus?: 'PENDENTE' | 'RECEBIDO' | 'NAO_POSSUI';
 }
 
 // --- Tags ---

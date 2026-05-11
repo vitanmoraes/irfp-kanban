@@ -10,7 +10,7 @@ import { useIRPFData } from './hooks/useIRPFData';
 function App() {
   const { 
     data, loading, error, groups, collaborators,
-    addCard, updateCard, moveCard, deleteCard, updateSubTask,
+    addCard, updateCard, moveCard, deleteCard, updateSubTask, addSubTask,
     addCommunication, addAuditEntry, addGroup, updateGroup, deleteGroup,
     addCollaborator, updateCollaborator, deleteCollaborator 
   } = useIRPFData();
@@ -115,6 +115,8 @@ function App() {
             onAddCommunication={addCommunication}
             onAddAuditEntry={addAuditEntry}
             onToggleTask={updateSubTask}
+            onUpdateSubTask={updateSubTask}
+            onAddSubTask={addSubTask}
             groups={groups}
             collaborators={collaborators}
           />

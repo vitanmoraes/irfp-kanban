@@ -12,12 +12,14 @@ interface Props {
   onAddCommunication: (cardId: string, entry: any) => void;
   onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
   onToggleTask: (taskId: string, completed: boolean) => void;
+  onUpdateSubTask: (taskId: string, updates: any) => void;
+  onAddSubTask: (cardId: string, task: any) => void;
   groups: any[];
   collaborators: any[];
 }
 
 export const KanbanBoard: React.FC<Props> = ({ 
-  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry, onToggleTask, groups, collaborators
+  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry, onToggleTask, onUpdateSubTask, onAddSubTask, groups, collaborators
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
@@ -166,6 +168,8 @@ export const KanbanBoard: React.FC<Props> = ({
               onToggleTask(taskId, !task.completed);
             }
           }}
+          onUpdateSubTask={onUpdateSubTask}
+          onAddSubTask={onAddSubTask}
           onAddAuditEntry={onAddAuditEntry}
           onAddCommunication={onAddCommunication}
           groups={groups}

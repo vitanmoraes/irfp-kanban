@@ -84,7 +84,10 @@ export const useIRPFData = () => {
               groupId: p.group_id,
               executors: p.executors || {},
               tags: p.tags || [],
-              subTasks: p.sub_tasks || [],
+              subTasks: (p.sub_tasks || []).map((t: any) => ({
+                ...t,
+                docStatus: t.doc_status || (t.completed ? 'RECEBIDO' : 'PENDENTE')
+              })),
               clientProfile: p.client_profile,
               gatesDigitacao: p.gates_digitacao,
               gatesTransmissao: p.gates_transmissao,
@@ -306,8 +309,9 @@ export const useIRPFData = () => {
       const { error } = await supabase.from('communications').insert([{
         process_id: cardId,
         type: entry.type,
-        content: entry.content,
-        sent_by: entry.sentBy
+        message: entry.message || entry.content,
+        user_name: entry.userName || 'Sistema',
+        direction: 'ENVIADO'
       }]);
       if (error) throw error;
       fetchData(true);
@@ -450,29 +454,86 @@ export const useIRPFData = () => {
   };
 
   // 10. Atualizar SubTarefa
-  const updateSubTask = async (taskId: string, completed: boolean) => {
-    if (IS_OFFLINE_MODE) {
-      setData(prev => ({
-        ...prev,
-        columns: prev.columns.map(col => ({
-          ...col,
-          cards: col.cards.map(card => ({
-            ...card,
-            subTasks: card.subTasks.map(task =>
-              task.id === taskId ? { ...task, completed } : task
-            )
-          }))
-        }))
-      }));
-      return;
+  const updateSubTask = async (taskId: string, updates: boolean | Partial<any>) => {
+    console.log('useIRPFData: updateSubTask chamado', { taskId, updates });
+    let finalUpdates: any = {};
+    let localUpdates: any = {};
+
+    if (typeof updates === 'boolean') {
+      finalUpdates = { completed: updates, doc_status: updates ? 'RECEBIDO' : 'PENDENTE' };
+      localUpdates = { completed: updates, docStatus: updates ? 'RECEBIDO' : 'PENDENTE' };
+    } else {
+      if (updates.completed !== undefined) finalUpdates.completed = updates.completed;
+      if (updates.docStatus) finalUpdates.doc_status = updates.docStatus;
+      localUpdates = updates;
     }
 
+    // Atualização Otimista: Muda na UI instantaneamente
+    setData(prev => ({
+      ...prev,
+      columns: prev.columns.map(col => ({
+        ...col,
+        cards: col.cards.map(card => ({
+          ...card,
+          subTasks: card.subTasks.map(task =>
+            task.id === taskId ? { ...task, ...localUpdates } : task
+          )
+        }))
+      }))
+    }));
+
+    if (IS_OFFLINE_MODE) return;
+
     try {
-      const { error } = await supabase.from('sub_tasks').update({ completed }).eq('id', taskId);
+      const { error } = await supabase.from('sub_tasks').update(finalUpdates).eq('id', taskId);
       if (error) throw error;
-      fetchData(true);
     } catch (err: any) {
       console.error('Erro ao atualizar subtarefa:', err);
+      fetchData(true); // Reverte em caso de erro no servidor
+    }
+  };
+
+  // 11. Adicionar SubTarefa (Documento Manual)
+  const addSubTask = async (cardId: string, task: Partial<any>) => {
+    const newTask = {
+      id: task.id || Date.now().toString(),
+      title: task.title || 'Novo Documento',
+      category: task.category || 'OUTROS',
+      instruction: task.instruction || '',
+      required: task.required || false,
+      completed: false,
+      docStatus: 'PENDENTE'
+    };
+
+    // Adição Otimista: Aparece na lista instantaneamente
+    setData(prev => ({
+      ...prev,
+      columns: prev.columns.map(col => ({
+        ...col,
+        cards: col.cards.map(card =>
+          card.id === cardId
+            ? { ...card, subTasks: [...card.subTasks, newTask as any] }
+            : card
+        )
+      }))
+    }));
+
+    if (IS_OFFLINE_MODE) return;
+
+    try {
+      const { error } = await supabase.from('sub_tasks').insert([{
+        process_id: cardId,
+        title: newTask.title,
+        category: newTask.category,
+        instruction: newTask.instruction,
+        required: newTask.required,
+        completed: false,
+        doc_status: 'PENDENTE'
+      }]);
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Erro ao adicionar subtarefa:', err);
+      fetchData(true); // Reverte/Sincroniza em caso de erro
     }
   };
 
@@ -487,6 +548,7 @@ export const useIRPFData = () => {
     moveCard,
     deleteCard,
     updateSubTask,
+    addSubTask,
     addCommunication,
     addAuditEntry,
     addGroup,
