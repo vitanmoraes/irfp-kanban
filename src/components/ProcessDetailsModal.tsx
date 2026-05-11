@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import type { IRPFCard, BillingModal, SubTask, ExtraService, CommunicationEntry, GateItem } from '../types';
+import type { IRPFCard } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, CheckCircle2, Info, FileText, MessageCircle, User, Users,
-  Shield, Target, Clock, Layout, ListChecks, Keyboard, 
-  Search, Scale, CreditCard, Send, PlusCircle, History,
-  AlertTriangle, ShieldAlert, DollarSign
+  X, CheckCircle2, FileText, MessageCircle, User, Users,
+  Shield, Target, Layout, ListChecks, Keyboard, 
+  Search, Scale, Send, PlusCircle, History,
+  AlertTriangle, DollarSign
 } from 'lucide-react';
 import { IRPF_PROCESS } from '../data/irpfProcess';
-import { getGroupName } from '../data/groups';
 import { 
   COMPLEXITY_COLORS, COMPLEXITY_LABELS, 
   RISK_COLORS, RISK_LABELS,
@@ -124,7 +123,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
   const tabs: { id: TabId; label: string; icon: any }[] = [
     { id: 'resumo', label: 'Resumo', icon: Layout },
     { id: 'documentos', label: 'Documentos', icon: FileText },
-    { id: 'checklist', label: 'Checklist', icon: ListChecks },
+    { id: 'checklist', label: 'Preparação', icon: ListChecks },
     { id: 'digitacao', label: 'Digitação', icon: Keyboard },
     { id: 'conferencia', label: 'Conferência', icon: Search },
     { id: 'analise', label: 'Análise', icon: Scale },
@@ -300,6 +299,77 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </div>
         );
 
+      case 'checklist':
+        const prepItems = [
+          {
+            key: 'preparacao_declaracao_ano_anterior',
+            title: 'Declaração Ano Anterior',
+            instructions: 'Clientes Ativos: Deixar declaração ano anterior no servidor/pasta.\nClientes Novos: Solicitar declaração anterior, cópia de segurança e/ou e-CAC.'
+          },
+          {
+            key: 'preparacao_acesso_pre_preenchida',
+            title: 'Procuração / Senha GOV / Certificado Digital',
+            instructions: 'Deixar pronto para acesso à declaração pré-preenchida.'
+          },
+          {
+            key: 'preparacao_documentacao_escritorio',
+            title: 'Documentação preparada pelo escritório',
+            instructions: 'Salvar/Imprimir na pasta do cliente: Informes (Corporação), Livro Caixa, Alterações Contratuais (Quotas/Sociedade).'
+          }
+        ];
+
+        return (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <ListChecks size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Checklist de Preparação</h3>
+                <p className="text-xs text-slate-500">Pré-requisitos internos para início dos trabalhos</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {prepItems.map((item) => {
+                const isCompleted = (card.processExecution as any)?.[item.key]?.completed || false;
+                return (
+                  <div 
+                    key={item.key}
+                    onClick={() => {
+                      onUpdateCard({
+                        processExecution: {
+                          ...(card.processExecution || {}),
+                          [item.key]: { completed: !isCompleted }
+                        }
+                      });
+                    }}
+                    className={`group flex items-start gap-4 p-6 rounded-[2rem] border transition-all cursor-pointer
+                      ${isCompleted 
+                        ? 'bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5' 
+                        : 'bg-white/5 border-white/5 hover:border-white/10 hover:bg-white/10'}`}
+                  >
+                    <div className={`mt-1 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all 
+                      ${isCompleted ? 'bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-slate-600 group-hover:border-indigo-500/50'}`}>
+                      {isCompleted && <CheckCircle2 size={14} className="text-white" />}
+                    </div>
+                    <div className="flex-1">
+                      <h5 className={`text-sm font-bold mb-2 ${isCompleted ? 'text-slate-500' : 'text-white'}`}>
+                        {item.title}
+                      </h5>
+                      <div className={`text-xs leading-relaxed space-y-1 ${isCompleted ? 'text-slate-600' : 'text-slate-400'}`}>
+                        {item.instructions.split('\n').map((line, i) => (
+                          <p key={i}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+
       case 'digitacao':
         const { pct: pctDig } = gateProgress(card.gatesDigitacao);
         return (
@@ -325,7 +395,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
             </div>
 
             <div className="grid grid-cols-1 gap-3">
-              {card.gatesDigitacao.map((gate, idx) => (
+              {card.gatesDigitacao.map((gate) => (
                 <div key={gate.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
                   <button 
                     onClick={() => {
