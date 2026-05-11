@@ -261,7 +261,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
                   <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                     <MessageCircle size={18} className="text-emerald-400" /> Histórico de Comunicação
                   </h4>
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="space-y-4 max-h-[400px] overflow-y-scroll pr-2 custom-scrollbar">
                     {card.communications.length > 0 ? (
                       card.communications.map((comm) => (
                         <div key={comm.id} className={`p-4 rounded-2xl border ${comm.direction === 'ENVIADO' ? 'bg-emerald-500/5 border-emerald-500/10 ml-8' : 'bg-white/5 border-white/10 mr-8'}`}>
@@ -525,14 +525,14 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </header>
 
           {/* Navegação por Abas */}
-          <nav className="flex overflow-x-auto px-8 py-2 border-b border-white/5 bg-slate-900/30 custom-scrollbar shrink-0">
+          <nav className="flex overflow-x-scroll px-8 py-2 border-b border-white/5 bg-slate-900/30 custom-scrollbar shrink-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all whitespace-nowrap text-sm font-bold relative group
+                  className={`flex items-center gap-2 px-6 py-4 rounded-2xl transition-all whitespace-nowrap text-sm font-bold relative group shrink-0
                     ${activeTab === tab.id ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
                 >
                   <Icon size={18} />
@@ -546,7 +546,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </nav>
 
           {/* Área de Conteúdo */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-10 bg-slate-900/10 relative">
+          <div className="flex-1 overflow-y-scroll overflow-x-scroll custom-scrollbar p-10 bg-slate-900/10 relative">
              <div className="max-w-5xl mx-auto">
                {renderTabContent()}
              </div>
