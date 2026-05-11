@@ -96,7 +96,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
         cpf = cpfMatch ? cpfMatch[0] : '38339202898';
       }
 
-      const normalizedCpf = cpf.replace(/\D/g, '');
+      const normalizedCpf = String(cpf).replace(/\D/g, '');
       
       // ── VALIDAÇÃO DE DUPLICIDADE (Normalizada) ──
       const allCards = data.columns.flatMap(col => col.cards);
@@ -111,7 +111,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
       const formattedCpf = normalizedCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
       
       let extractedName = header?.nome || '';
-      if (!extractedName || extractedName.length < 3) {
+      if (!extractedName || String(extractedName).length < 3) {
         extractedName = `Cliente ${formattedCpf.substring(0, 3)}...`;
       }
 
@@ -227,7 +227,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
         clientName: extractedName,
         cpf: formattedCpf,
         phone: '', // Pode ser preenchido manualmente
-        type: (header?.tipoDeclaracao as 'COMPLETA' | 'SIMPLIFICADA') || 'COMPLETA',
+        type: (String(header?.tipoDeclaracao) as 'COMPLETA' | 'SIMPLIFICADA') || 'COMPLETA',
         complexityScore: calculateComplexityScore(clientProfile),
         riskLevel: 'BAIXO',
         statusDoc: 'PENDENTE',
@@ -239,13 +239,14 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
         tags: [{ id: uuidv4(), label: 'Importado', color: '#10b981' }],
         subTasks: combinedTasks,
         clientProfile,
-        gatesDigitacao: INITIAL_GATES_DIGITACAO,
-        gatesTransmissao: INITIAL_GATES_TRANSMISSAO,
+        gatesDigitacao: INITIAL_GATES_DIGITACAO.map(g => ({ ...g, required: true })),
+        gatesTransmissao: INITIAL_GATES_TRANSMISSAO.map(g => ({ ...g, required: true })),
         fiscalAnalysis: {
+          planningOpportunities: [],
           autoAlerts: [],
           technicalNotes: '',
           previousYearAssets: 0,
-          currentYearAssets: currentAssets.toNumber()
+          currentYearAssets: Number(currentAssets.toString())
         },
         financial: {
           modality: 'COMPLETA',

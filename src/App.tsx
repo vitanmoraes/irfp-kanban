@@ -12,7 +12,8 @@ function App() {
   const { 
     data, loading, error, groups, collaborators,
     addCard, updateCard, moveCard, deleteCard, updateSubTask,
-    addCommunication, addAuditEntry, addGroup, updateGroup, deleteGroup 
+    addCommunication, addAuditEntry, addGroup, updateGroup, deleteGroup,
+    addCollaborator, updateCollaborator, deleteCollaborator 
   } = useIRPFData();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'preparacao' | 'kanban' | 'inteligencia' | 'configuracoes'>('dashboard');
 
@@ -127,6 +128,9 @@ function App() {
             onAddGroup={addGroup} 
             onUpdateGroup={updateGroup} 
             onDeleteGroup={deleteGroup} 
+            onAddCollaborator={addCollaborator}
+            onUpdateCollaborator={updateCollaborator}
+            onDeleteCollaborator={deleteCollaborator}
           />
         )}
       </main>

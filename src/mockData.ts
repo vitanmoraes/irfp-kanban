@@ -65,8 +65,6 @@ function makeCard(overrides: Partial<IRPFCard> & Pick<IRPFCard, 'id' | 'clientNa
     notes: '',
     // Aplicar overrides
     ...overrides,
-    clientProfile: profile,
-    complexityScore: calculateComplexityScore(profile),
   };
 }
 

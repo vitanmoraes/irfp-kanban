@@ -111,7 +111,7 @@ export class ChecklistEngine {
 
       if (type === '21' || type === '32') {
         const pj = type === '21' ? this.parser.parseRendimentosPJ(line) : this.parser.parseRendimentosPJDependentes(line);
-        if (pj.nome) incomeSources.add(this.cleanName(pj.nome));
+        if (pj.nome) incomeSources.add(this.cleanName(String(pj.nome)));
       }
 
       if (type === '26') {
@@ -142,7 +142,7 @@ export class ChecklistEngine {
         }
 
 
-        const taskTitle = `${benefNome} — Comprovante de pagamento: ${grupoTxt} - ${this.cleanName(pagto.beneficiario)}`;
+        const taskTitle = `${benefNome} — Comprovante de pagamento: ${grupoTxt} - ${this.cleanName(String(pagto.beneficiario))}`;
         subTasks.push(this.createTask(taskTitle, category, `Conferir se o valor de R$ ${pagto.valor} possui documento comprobatório.`));
       }
 
@@ -152,8 +152,8 @@ export class ChecklistEngine {
         const grupo = bem.grupo || 0;
         const cod = bem.codigo || '99';
         const codInt = parseInt(cod);
-        const desc = bem.descricao?.toUpperCase() || '';
-        const assetName = this.extractAssetName(bem.descricao || '');
+        const desc = String(bem.descricao || '').toUpperCase();
+        const assetName = this.extractAssetName(String(bem.descricao || ''));
 
         // Mapeamento de nomes oficiais para exibição no checklist
         const OFFICIAL_NAMES: Record<number, Record<number, string>> = {

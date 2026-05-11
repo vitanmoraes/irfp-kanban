@@ -40,7 +40,14 @@ export const useIRPFData = () => {
       ]);
 
       if (groupsRes.data) setGroups(groupsRes.data);
-      if (collaboratorsRes.data) setCollaborators(collaboratorsRes.data);
+      if (collaboratorsRes.data) {
+        // Mapear de volta para camelCase se necessário (groupId)
+        const mappedCollaborators = collaboratorsRes.data.map((c: any) => ({
+          ...c,
+          groupId: c.group_id
+        }));
+        setCollaborators(mappedCollaborators);
+      }
 
       // 2. Buscar Processos com Joins
       const { data: processes, error: pError } = await supabase
@@ -84,7 +91,14 @@ export const useIRPFData = () => {
               fiscalAnalysis: p.fiscal_analysis,
               financial: p.financial,
               communications: p.communications || [],
-              auditTrail: p.audit_trail || []
+              auditTrail: (p.audit_trail || []).map((a: any) => ({
+                id: a.id,
+                timestamp: a.timestamp,
+                action: a.action,
+                details: a.details,
+                userId: a.user_id,
+                userName: a.user_name
+              }))
             } as IRPFCard))
         }));
 
@@ -311,7 +325,14 @@ export const useIRPFData = () => {
   // 7. Adicionar Auditoria
   const addAuditEntry = async (cardId: string, action: string, details?: string) => {
     if (IS_OFFLINE_MODE) {
-      const entry = { id: Date.now().toString(), timestamp: new Date().toISOString(), action, details, userName: 'Sistema' };
+      const entry = { 
+        id: Date.now().toString(), 
+        timestamp: new Date().toISOString(), 
+        action, 
+        details, 
+        userName: 'Sistema',
+        userId: 'sistema'
+      };
       setData(prev => ({
         ...prev,
         columns: prev.columns.map(col => ({
@@ -331,7 +352,8 @@ export const useIRPFData = () => {
         process_id: cardId,
         action,
         details,
-        user_name: 'Antigravity AI' // Aqui poderíamos usar o nome do usuário logado
+        user_name: 'Antigravity AI',
+        user_id: 'sistema'
       }]);
       if (error) throw error;
       fetchData(true);
@@ -371,7 +393,63 @@ export const useIRPFData = () => {
     }
   };
 
-  // 9. Atualizar SubTarefa
+  // 9. Gestão de Colaboradores
+  const addCollaborator = async (collaborator: any) => {
+    // Mapear campos para o Supabase (snake_case)
+    const dbCollaborator = {
+      id: collaborator.id,
+      name: collaborator.name,
+      role: collaborator.role,
+      level: collaborator.level,
+      group_id: collaborator.groupId,
+      active: collaborator.active !== undefined ? collaborator.active : true
+    };
+
+    const newCollaborators = [...collaborators, collaborator];
+    setCollaborators(newCollaborators);
+
+    if (IS_OFFLINE_MODE) {
+      // Opcional: salvar no localStorage se necessário, mas o fetchData já tenta carregar de arquivos
+      // Para consistência com grupos, poderíamos usar localStorage também
+      localStorage.setItem('irpf_kanban_collaborators', JSON.stringify(newCollaborators));
+    } else {
+      const { error } = await supabase.from('collaborators').insert([dbCollaborator]);
+      if (error) console.error('Erro ao adicionar colaborador:', error);
+    }
+  };
+
+  const updateCollaborator = async (id: string, updates: any) => {
+    const dbUpdates: any = {};
+    if (updates.name) dbUpdates.name = updates.name;
+    if (updates.role) dbUpdates.role = updates.role;
+    if (updates.level) dbUpdates.level = updates.level;
+    if (updates.groupId) dbUpdates.group_id = updates.groupId;
+    if (updates.active !== undefined) dbUpdates.active = updates.active;
+
+    const newCollaborators = collaborators.map(c => c.id === id ? { ...c, ...updates } : c);
+    setCollaborators(newCollaborators);
+
+    if (IS_OFFLINE_MODE) {
+      localStorage.setItem('irpf_kanban_collaborators', JSON.stringify(newCollaborators));
+    } else {
+      const { error } = await supabase.from('collaborators').update(dbUpdates).eq('id', id);
+      if (error) console.error('Erro ao atualizar colaborador:', error);
+    }
+  };
+
+  const deleteCollaborator = async (id: string) => {
+    const newCollaborators = collaborators.filter(c => c.id !== id);
+    setCollaborators(newCollaborators);
+
+    if (IS_OFFLINE_MODE) {
+      localStorage.setItem('irpf_kanban_collaborators', JSON.stringify(newCollaborators));
+    } else {
+      const { error } = await supabase.from('collaborators').delete().eq('id', id);
+      if (error) console.error('Erro ao deletar colaborador:', error);
+    }
+  };
+
+  // 10. Atualizar SubTarefa
   const updateSubTask = async (taskId: string, completed: boolean) => {
     if (IS_OFFLINE_MODE) {
       setData(prev => ({
@@ -413,6 +491,9 @@ export const useIRPFData = () => {
     addAuditEntry,
     addGroup,
     updateGroup,
-    deleteGroup
+    deleteGroup,
+    addCollaborator,
+    updateCollaborator,
+    deleteCollaborator
   };
 };

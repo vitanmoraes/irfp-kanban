@@ -10,6 +10,7 @@ interface Props {
   onUpdateCard: (cardId: string, updates: Partial<IRPFCard>) => void;
   onDeleteCard: (cardId: string) => void;
   onAddCommunication: (cardId: string, entry: any) => void;
+  onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
   onToggleTask: (taskId: string, completed: boolean) => void;
   groups: any[];
   collaborators: any[];
@@ -24,10 +25,7 @@ export const KanbanBoard: React.FC<Props> = ({
   const [filterRisk, setFilterRisk] = useState<string>('all');
   const [filterComplexity, setFilterComplexity] = useState<string>('all');
   const [selectedCard, setSelectedCard] = useState<IRPFCard | null>(null);
-  const [alert, setAlert] = useState<string | null>(null);
-
-  // Exibir todas as colunas no Kanban
-  const kanbanColumns = data.columns;
+  const [alert] = useState<string | null>(null);
 
   const moveCard = (cardId: string, targetColumnId: string) => {
     onMoveCard(cardId, targetColumnId);
@@ -148,9 +146,6 @@ export const KanbanBoard: React.FC<Props> = ({
               onCardClick={(card) => setSelectedCard({ ...card, columnId: column.id } as any)}
               onCardDrop={(cardId) => moveCard(cardId, column.id)}
               onDeleteCard={deleteCard}
-              onUpdateCard={updateCardDetails}
-              onAddCommunication={onAddCommunication}
-              onAddAuditEntry={onAddAuditEntry}
               collaborators={collaborators}
             />
           ))}
@@ -172,6 +167,7 @@ export const KanbanBoard: React.FC<Props> = ({
             }
           }}
           onAddAuditEntry={onAddAuditEntry}
+          onAddCommunication={onAddCommunication}
           groups={groups}
           collaborators={collaborators}
         />

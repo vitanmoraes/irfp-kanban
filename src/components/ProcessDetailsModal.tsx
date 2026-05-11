@@ -688,7 +688,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
                            <span className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
                         </div>
                         <p className="text-xs text-slate-500 mt-1">{log.details}</p>
-                        <p className="text-[10px] text-slate-600 mt-2">Usuário: {log.user_name}</p>
+                        <p className="text-[10px] text-slate-600 mt-2">Usuário: {log.userName}</p>
                       </div>
                     </div>
                   ))

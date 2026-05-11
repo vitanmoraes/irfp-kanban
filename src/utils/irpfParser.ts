@@ -63,7 +63,7 @@ export class IRPFParser {
   public parseBens(line: string) {
     // Calibração de corte baseada no motor 2.0
     return {
-      codigo: this.parseField(line, 14, 15, 'C').padStart(2, '0'),
+      codigo: String(this.parseField(line, 14, 15, 'C')).padStart(2, '0'),
       descricao: this.parseField(line, 20, 531, 'C'),
       valorAnterior: this.parseField(line, 532, 544, 'D', 2),
       valorAtual: this.parseField(line, 545, 557, 'D', 2),
@@ -109,8 +109,8 @@ export class IRPFParser {
 
   public parsePagamentos(line: string) {
     return {
-      codigo: this.parseField(line, 14, 15, 'C').padStart(2, '0'),
-      dependente: this.parseField(line, 16, 17, 'C').padStart(2, '0'),
+      codigo: String(this.parseField(line, 14, 15, 'C')).padStart(2, '0'),
+      dependente: String(this.parseField(line, 16, 17, 'C')).padStart(2, '0'),
       beneficiario: this.parseField(line, 35, 94, 'C'),
       valor: this.parseField(line, 95, 107, 'D', 2)
     };
