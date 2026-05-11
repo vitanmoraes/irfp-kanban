@@ -19,27 +19,70 @@ export class ChecklistEngine {
   private cleanName(name: string): string {
     return name
       .replace(/^[0-9\s.\-/]{3,18}/, '') 
+      .replace(/^[0-9]+/, '') // Remove qualquer dígito isolado que sobrou no início
       .replace(/CNPJ:?\s?[0-9.\-/]{14,18}$/i, '')
       .trim();
+
   }
 
   private extractAssetName(desc: string): string {
     return desc
-      .replace(/ACOES DA |COTAS DE |SALDO EM |APLICACOES? EM |PARTICIPACAO NA |APLICACAO EM |VEICULO |ITEM /gi, '')
+      .replace(/ACOES DA |COTAS DE |SALDO EM |APLICACOES? EM |PARTICIPACAO NA |APLICACAO EM /gi, '')
       .split(/[,-]/)[0]
       .trim();
   }
 
   private getInstruction(grupo: number, codigo: string): string {
-    if (grupo === 1) return 'Necessário: Endereço, Área, Matrícula, Cartório e Inscrição Municipal (IPTU).';
-    if (grupo === 2 && codigo === '01') return 'Necessário: Marca, Modelo, Placa e RENAVAM.';
-    if (grupo === 3 && codigo === '01') return 'Necessário: Notas de Corretagem e Informe de Custódia.';
-    if (grupo === 3 && codigo === '02') return 'Necessário: Alteração Contratual (Cotas) e Balanço Patrimonial.';
-    if (grupo === 4 || grupo === 6) return 'Necessário: Informe de Rendimentos com Agência, Conta e CNPJ da Instituição.';
-    if (grupo === 7) return 'Necessário: CNPJ do Fundo, Quantidade de Quotas e Custo Total pelo Informe.';
-    if (grupo === 8) return 'Cripto: Quantidade, Custodiante/Carteira e Custo ORIGINAL de Aquisição.';
-    return 'Conferir dados no Informe de Rendimentos ou Documento de Compra.';
+    const codInt = parseInt(codigo);
+    
+    const INSTRUCTIONS: Record<number, { name: string, docs: string, specifics?: Record<number, string> }> = {
+      1: { 
+        name: "Bens Imóveis", 
+        docs: "Necessário: Escritura/Contrato, Espelho do IPTU e Matrícula Atualizada.",
+        specifics: { 13: "Se Terreno: Verificar se houve construção (Alvará/Habite-se)." }
+      },
+      2: { 
+        name: "Bens Móveis", 
+        docs: "Necessário: Documento de Compra/Venda e Certificado de Registro.",
+        specifics: { 1: "Veículo: Informar RENAVAM e Placa obrigatoriamente." }
+      },
+      3: { 
+        name: "Participações Societárias", 
+        docs: "Necessário: Contrato Social/Alteração e Informe de Rendimentos da Empresa.",
+        specifics: { 1: "Ações: Notas de Corretagem e Informe de Custódia." }
+      },
+      4: { 
+        name: "Aplicações e Investimentos", 
+        docs: "Necessário: Informe de Rendimentos Bancários e Extrato de Custódia." 
+      },
+      5: { 
+        name: "Créditos", 
+        docs: "Necessário: Contrato de Empréstimo/Mútuo ou Comprovante de Crédito." 
+      },
+      6: { 
+        name: "Depósito à Vista", 
+        docs: "Necessário: Informe de Rendimentos com Agência e Conta." 
+      },
+      7: { 
+        name: "Fundos", 
+        docs: "Necessário: Informe de Rendimentos do Fundo (CNPJ e Qtd Quotas)." 
+      },
+      8: { 
+        name: "Criptoativos", 
+        docs: "Necessário: Extrato da Exchange ou Relatório de Custódia (Qtd e Custo)." 
+      },
+      99: { 
+        name: "Outros Bens", 
+        docs: "Documento comprobatório da posse ou direito." 
+      }
+    };
+
+    const rule = INSTRUCTIONS[grupo] || { name: `Grupo ${grupo}`, docs: "Conferir Informe de Rendimentos." };
+    const specific = rule.specifics?.[codInt] || "";
+    
+    return `${rule.docs} ${specific}`.trim();
   }
+
 
   public generate(lines: string[], depMap: Record<string, string>): SubTask[] {
     const subTasks: SubTask[] = [];
@@ -51,8 +94,8 @@ export class ChecklistEngine {
     const incomeSources = new Set<string>();
     const medicalItems = new Set<string>();
     const educationItems = new Set<string>();
-    const individualStocks = new Set<string>();
-    const individualShares = new Set<string>();
+    const individualStocks = new Set<string>(); // Gr:3 Cod:01
+    const individualShares = new Set<string>(); // Gr:3 Cod:02
     const individualRealEstate = new Set<string>();
     const individualVehicles = new Set<string>();
     const individualOtherAssets = new Set<string>();
@@ -72,34 +115,60 @@ export class ChecklistEngine {
       }
 
       if (type === '26') {
-        const cod = parseInt(line.substring(13, 15).trim()) || 99;
-        const benef = this.cleanName(line.substring(34, 94).trim());
-        if (benef) {
-          if (cod === 1 || cod === 2) educationItems.add(benef);
-          else if (cod >= 9 && cod <= 26) medicalItems.add(benef);
+        const pagto = this.parser.parsePagamentos(line);
+        const cod = parseInt(pagto.codigo);
+        const depKey = pagto.dependente === '00' ? 'TITULAR' : pagto.dependente;
+        const benefNome = depKey === 'TITULAR' ? 'TITULAR' : (depMap[depKey] || `Dependente ${depKey}`);
+        
+        // Mapeamento de Grupos sugeridos pelo usuário
+        let grupoTxt = "❤️ Doações e Outros";
+        let category = "PAGAMENTOS";
+
+        if ([1, 2].includes(cod)) {
+          grupoTxt = "📚 Instrução (Educação)";
+          category = "EDUCACAO";
+        } else if ((cod >= 10 && cod <= 26) || [80, 81].includes(cod)) {
+          grupoTxt = "🩺 Saúde (Despesas Médicas)";
+          category = "SAUDE";
+        } else if ([36, 37].includes(cod)) {
+          grupoTxt = "🛡️ Previdência e Pensão";
+          category = "PREVIDENCIA";
+        } else if ([29, 30, 31, 33, 34, 41].includes(cod)) {
+          grupoTxt = "🛡️ Previdência e Pensão"; // Agrupado conforme solicitado
+          category = "PENSAO";
+        } else if (cod >= 60 && cod <= 71) {
+          grupoTxt = "⚖️ Honorários e Aluguéis";
+          category = "HONORARIOS";
         }
+
+
+        const taskTitle = `${benefNome} — Comprovante de pagamento: ${grupoTxt} - ${this.cleanName(pagto.beneficiario)}`;
+        subTasks.push(this.createTask(taskTitle, category, `Conferir se o valor de R$ ${pagto.valor} possui documento comprobatório.`));
       }
+
 
       if (type === '27') {
         const bem = this.parser.parseBens(line);
-        let grupo = bem.grupo || 0;
-        let cod = bem.codigo || '99';
+        const grupo = bem.grupo || 0;
+        const cod = bem.codigo || '99';
+        const codInt = parseInt(cod);
         const desc = bem.descricao?.toUpperCase() || '';
         const assetName = this.extractAssetName(bem.descricao || '');
 
-        // --- INTELIGÊNCIA DE AUDITORIA: CORREÇÃO DE GRUPOS POR TEXTO ---
-        if (desc.includes('VEICULO') || desc.includes('PLACA') || desc.includes('CHASSI') || desc.includes('RENAVAM')) {
-          grupo = 2; cod = '01';
-        } else if (desc.includes('CASA') || desc.includes('APARTAMENTO') || desc.includes('TERRENO') || desc.includes('QUADRA')) {
-          grupo = 1;
-        } else if (desc.includes('ACOES') || desc.includes('BOLSA')) {
-          grupo = 3; cod = '01';
-        } else if (desc.includes('QUOTAS') || desc.includes('CAPITAL DA EMPRESA')) {
-          grupo = 3; cod = '02';
-        } else if (desc.includes('EQUIPAMENTO') || desc.includes('MAQUINA') || desc.includes('LASER')) {
-          grupo = 2; cod = '04'; // Bem relacionado à atividade autônoma/profissional
-        }
+        // Mapeamento de nomes oficiais para exibição no checklist
+        const OFFICIAL_NAMES: Record<number, Record<number, string>> = {
+          1: { 1: "Prédio residencial", 2: "Prédio comercial", 3: "Galpão", 11: "Apartamento", 12: "Casa", 13: "Terreno", 14: "Terra nua", 15: "Sala ou conjunto", 16: "Construção", 19: "Garagem Avulsa", 99: "Outros bens imóveis" },
+          2: { 1: "Veículo automotor", 2: "Aeronave", 3: "Embarcação", 6: "Joia/Objeto de Arte", 99: "Outros bens móveis" },
+          3: { 1: "Ações", 2: "Quotas de Capital", 3: "Holding Patrimonial", 99: "Outras participações" },
+          4: { 1: "Poupança", 2: "Títulos Públicos", 3: "CDB/LCI/LCA", 4: "Ouro/Metais Preciosos", 99: "Outros investimentos" },
+          5: { 1: "Empréstimo Concedido", 2: "Crédito de Alienação", 99: "Outros créditos" },
+          6: { 1: "Conta Corrente BR", 2: "Conta Corrente Ext", 3: "Dinheiro Espécie BR", 4: "Dinheiro Espécie Ext" },
+          7: { 1: "Fundo de Investimento", 3: "Fundo Imobiliário (FII)", 4: "ETFs", 11: "FIP", 12: "FIEE", 13: "Fundo Multimercado" },
+          8: { 1: "Bitcoin (BTC)", 2: "Altcoins", 3: "Stablecoins", 10: "NFTs", 99: "Outros criptoativos" },
+          99: { 1: "Licença Especial", 2: "Título de Clube", 3: "Direito Autoral/Patente", 6: "Leasing", 99: "Outros bens" }
+        };
 
+        const tipoNome = OFFICIAL_NAMES[grupo]?.[codInt] || `Bem (Cód:${cod})`;
         let foundInst = INSTITUTIONS.find(inst => desc.includes(inst));
 
         if (foundInst) {
@@ -118,7 +187,7 @@ export class ChecklistEngine {
             banks[foundInst].assets.add(assetName);
           }
         } else {
-          const label = `${assetName} (Gr:${grupo} Cód:${cod})`;
+          const label = `${tipoNome}: ${assetName}`;
           if (grupo === 1) individualRealEstate.add(label);
           else if (grupo === 2) individualVehicles.add(label);
           else if (grupo === 3 && cod === '01') individualStocks.add(label);
@@ -126,9 +195,11 @@ export class ChecklistEngine {
           else individualOtherAssets.add(label);
         }
       }
+
     });
 
-    // --- MONTAGEM DO CHECKLIST ---
+    // --- GERAÇÃO DO CHECKLIST ---
+
     subTasks.push(this.createTask('RG / CPF atualizado do titular e dependentes', 'CADASTRO', 'Necessário para verificação cadastral.'));
     subTasks.push(this.createTask('Comprovante de residência atualizado', 'CADASTRO', 'Deve ser recente.'));
     subTasks.push(this.createTask('Dados bancários para restituição (Banco, Agência, Conta)', 'CADASTRO', 'Para crédito da restituição.'));
@@ -137,9 +208,9 @@ export class ChecklistEngine {
 
     Object.entries(brokers).forEach(([name, data]) => {
       const parts = [];
-      if (data.stocks.size > 0) parts.push(`Ativos: ${Array.from(data.stocks).slice(0, 3).join(', ')}`);
+      if (data.stocks.size > 0) parts.push(`Ações: ${Array.from(data.stocks).slice(0, 3).join(', ')}`);
       if (data.fiis.size > 0) parts.push(`Fundos: ${Array.from(data.fiis).slice(0, 2).join(', ')}`);
-      subTasks.push(this.createTask(`Extrato Consolidado ${name}`, 'BENS_BOLSA', 'Notas de Corretagem e Informe de Custódia.'));
+      subTasks.push(this.createTask(`Extrato de Custódia ${name}`, 'BENS_BOLSA', 'Notas de Corretagem e Informe de Rendimentos.'));
     });
 
     Object.entries(overseasBrokers).forEach(([name, data]) => {
@@ -147,17 +218,24 @@ export class ChecklistEngine {
     });
 
     Object.entries(banks).forEach(([name, data]) => {
-      subTasks.push(this.createTask(`Informe de Rendimentos Banco ${name}`, 'BENS_FINANCEIROS', 'Saldos de Conta Corrente, Poupança e CDBs.'));
+      subTasks.push(this.createTask(`Informe de Rendimentos Banco ${name}`, 'BENS_FINANCEIROS'));
     });
 
+    // Diferenciação Solicitada: Ações vs Participação Societária
     individualStocks.forEach(s => subTasks.push(this.createTask(`Ações: ${s}`, 'BENS_SOCIOS', this.getInstruction(3, '01'))));
     individualShares.forEach(s => subTasks.push(this.createTask(`Participação Societária: ${s}`, 'BENS_SOCIOS', this.getInstruction(3, '02'))));
-    individualRealEstate.forEach(re => subTasks.push(this.createTask(`Imóvel: ${re}`, 'BENS_RURAL', this.getInstruction(1, '01'))));
-    individualVehicles.forEach(v => subTasks.push(this.createTask(`Veículo/Equipamento: ${v}`, 'BENS_MÓVEIS', this.getInstruction(2, '01'))));
-    individualOtherAssets.forEach(o => subTasks.push(this.createTask(`Outro Bem: ${o}`, 'OUTROS')));
+    
+    individualRealEstate.forEach(re => {
+      // Se for terra nua (14) ou se a descrição sugerir rural, cai em BENS_RURAL, senão BENS_IMOVEIS
+      const isRural = re.includes('Terra nua') || re.includes('RURAL') || re.includes('FAZENDA') || re.includes('SITIO');
+      const category = isRural ? 'BENS_RURAL' : 'BENS_IMOVEIS';
+      subTasks.push(this.createTask(`Imóvel: ${re}`, category, this.getInstruction(1, '01')));
+    });
 
-    medicalItems.forEach(item => subTasks.push(this.createTask(`NF Saúde: ${item}`, 'SAUDE')));
-    educationItems.forEach(item => subTasks.push(this.createTask(`NF Educação: ${item}`, 'EDUCACAO')));
+
+    individualVehicles.forEach(v => subTasks.push(this.createTask(`Veículo: ${v}`, 'BENS_MOVEIS', this.getInstruction(2, '01'))));
+    individualOtherAssets.forEach(o => subTasks.push(this.createTask(`Outro Bem: ${o}`, 'BENS_OUTROS')));
+
 
     return subTasks;
   }

@@ -282,15 +282,20 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
     { key: 'EDUCACAO',           label: '📚 Despesas de Educação / Instrução' },
     { key: 'PREVIDENCIA',        label: '🛡️ Previdência Social e Privada' },
     { key: 'PENSAO',             label: '⚖️ Pensão Alimentícia' },
+    { key: 'HONORARIOS',         label: '⚖️ Honorários e Aluguéis' },
     { key: 'DOACOES',            label: '❤️ Doações Incentivadas' },
+
     { key: 'BENS_BOLSA',         label: '📊 Bens — Ações, FIIs e Cotas em Bolsa' },
     { key: 'BENS_FINANCEIROS',   label: '🏦 Bens — Aplicações Financeiras' },
     { key: 'BENS_SOCIOS',        label: '🏭 Bens — Participação Societária' },
     { key: 'BENS_JCP',           label: '💸 Bens — JCP / Dividendos a Receber' },
+    { key: 'BENS_IMOVEIS',       label: '🏠 Bens — Imóveis Urbanos' },
     { key: 'BENS_MOVEIS',        label: '🚗 Bens — Bens Móveis (Veículos)' },
+
     { key: 'BENS_RURAL',         label: '🌾 Bens — Imóvel Rural' },
     { key: 'BENS_EXTERIOR',      label: '🌎 Bens — Ativos no Exterior' },
     { key: 'BENS_OUTROS',        label: '🗂️ Bens — Outros Bens e Direitos' },
+
     { key: 'BASICO',             label: '📑 Dados Cadastrais' },
     { key: 'RENDIMENTOS',        label: '💰 Rendimentos' },
     { key: 'BENS',               label: '🏠 Bens e Direitos' },
@@ -605,7 +610,9 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
                     { key: 'EDUCACAO',             label: '📚 Despesas de Educação / Instrução',         color: '#3b82f6' },
                     { key: 'PREVIDENCIA',          label: '🛡️ Previdência Social e Privada',             color: '#0ea5e9' },
                     { key: 'PENSAO',               label: '⚖️ Pensão Alimentícia',                       color: '#f59e0b' },
+                    { key: 'HONORARIOS',           label: '⚖️ Honorários e Aluguéis',                    color: '#f59e0b' },
                     { key: 'DOACOES',              label: '❤️ Doações Incentivadas',                     color: '#ec4899' },
+                    { key: 'BENS_IMOVEIS',         label: '🏠 Bens — Imóveis Urbanos',                  color: '#22c55e' },
                     { key: 'BENS_BOLSA',           label: '📊 Bens — Ações, FIIs e Cotas em Bolsa',     color: '#f97316' },
                     { key: 'BENS_FINANCEIROS',     label: '🏦 Bens — Aplicações Financeiras',            color: '#14b8a6' },
                     { key: 'BENS_SOCIOS',          label: '🏭 Bens — Participação Societária',           color: '#8b5cf6' },
@@ -713,15 +720,23 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
                                     )}
                                   </div>
                                   {/* Texto */}
-                                  <span
-                                    className="text-sm leading-relaxed flex-1"
-                                    style={{
-                                      color: task.completed ? '#64748b' : '#e2e8f0',
-                                      textDecoration: task.completed ? 'line-through' : 'none',
-                                    }}
-                                  >
-                                    {task.title}
-                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <span
+                                      className="text-sm leading-relaxed block"
+                                      style={{
+                                        color: task.completed ? '#64748b' : '#e2e8f0',
+                                        textDecoration: task.completed ? 'line-through' : 'none',
+                                      }}
+                                    >
+                                      {task.title}
+                                    </span>
+                                    {task.instruction && !task.completed && (
+                                      <p className="text-[10px] text-slate-500 mt-0.5 italic leading-snug">
+                                        {task.instruction}
+                                      </p>
+                                    )}
+                                  </div>
+
                                   {/* Toggle de mensagem */}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); toggleMessageItem(task.id); }}

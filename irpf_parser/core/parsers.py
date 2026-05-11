@@ -93,6 +93,26 @@ def parse_renda_variavel(line: str, version: int) -> models.RendaVariavelMensal:
         reg.raw_tail = line[178:]
     return reg
 
+def parse_dependente(line: str, version: int) -> models.Dependentes:
+    reg = models.Dependentes(raw_line=line, layout_version=str(version))
+    reg.nr_cpf = parse_field(line, 3, 13, 'C')
+    reg.nr_chave = parse_field(line, 14, 18, 'N')
+    reg.nm_depend = parse_field(line, 21, 80, 'C')
+    return reg
+
+def parse_pagamento(line: str, version: int) -> models.PagamentosEfetuados:
+    reg = models.PagamentosEfetuados(raw_line=line, layout_version=str(version))
+    reg.nr_cpf = parse_field(line, 3, 13, 'C')
+    reg.cd_pagto = parse_field(line, 14, 15, 'N')
+    reg.cd_dependente = parse_field(line, 16, 17, 'C')
+    reg.nr_benef = parse_field(line, 18, 31, 'C')
+    reg.nm_benef = parse_field(line, 35, 94, 'C')
+    reg.vr_pagto = parse_field(line, 95, 107, 'Decimal', 2)
+    return reg
+
+
+
+
 def parse_encerramento(line: str, version: int) -> models.RegistroTipoEncerramento:
     reg = models.RegistroTipoEncerramento(raw_line=line, layout_version=str(version))
     reg.nr_cpf = parse_field(line, 3, 13, 'C')

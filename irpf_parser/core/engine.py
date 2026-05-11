@@ -1,7 +1,8 @@
 from .scanner import LayoutScanner
 from .parsers import (
     parse_header_ir, parse_identificacao, parse_rendimento_pj,
-    parse_bens, parse_totais, parse_renda_variavel, parse_encerramento
+    parse_bens, parse_totais, parse_renda_variavel, parse_encerramento,
+    parse_dependente, parse_pagamento
 )
 from ..models import registros as models
 
@@ -37,12 +38,17 @@ class IRPFEngine:
                 declarao.identificacao = parse_identificacao(line, exercise)
             elif line.startswith("21"):
                 declarao.rendimentos_pj.append(parse_rendimento_pj(line, exercise))
+            elif line.startswith("25"):
+                declarao.dependentes.append(parse_dependente(line, exercise))
+            elif line.startswith("26"):
+                declarao.pagamentos.append(parse_pagamento(line, exercise))
             elif line.startswith("27"):
                 declarao.bens.append(parse_bens(line, exercise))
             elif line.startswith("20"):
                 declarao.totais = parse_totais(line, exercise)
             elif line.startswith("40"):
                 declarao.renda_variavel.append(parse_renda_variavel(line, exercise))
+
             elif line.startswith("T9"):
                 declarao.encerramento = parse_encerramento(line, exercise)
                 

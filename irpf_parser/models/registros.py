@@ -85,9 +85,11 @@ class PagamentosEfetuados(BaseRegistro):
     nr_reg: int = 26
     nr_cpf: str = ""
     cd_pagto: int = 0
+    cd_dependente: str = "00"
     nr_benef: str = ""
     nm_benef: str = ""
     vr_pagto: Decimal = Decimal('0.00')
+
 
 @dataclass
 class DeclaracaoBensDireitos(BaseRegistro):

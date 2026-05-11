@@ -122,8 +122,14 @@ export const ProcessDetailsModal: React.FC<Props> = ({
                     <p className={`text-[11px] font-bold leading-tight ${task.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
                       {task.title} {task.required && <span className="text-red-400 ml-1">*</span>}
                     </p>
+                    {task.instruction && !task.completed && (
+                      <p className="text-[10px] text-slate-400 mt-1 italic leading-snug">
+                        {task.instruction}
+                      </p>
+                    )}
                     <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest mt-1 block">{task.category}</span>
                   </div>
+
                 </div>
               ))}
             </div>
