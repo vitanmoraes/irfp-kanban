@@ -3,17 +3,18 @@ import type { IRPFAppState, IRPFCard, SubTask } from '../types';
 import { FileUp, Search, User, FileText, Send, CheckCircle2, Trash2, ClipboardList, Mail, ChevronDown, ChevronUp, Copy, Check, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
+import { IRPFParser } from '../utils/irpfParser';
+import { ChecklistEngine } from '../utils/checklistEngine';
+import { Decimal } from 'decimal.js';
 import { calculateComplexityScore } from '../utils/scoreCalculator';
-import { generateBaseChecklist } from '../utils/checklistGenerator';
-import { COLLABORATORS } from '../data/collaborators';
 import { INITIAL_GATES_DIGITACAO, INITIAL_GATES_TRANSMISSAO } from '../data/irpfProcess';
 
 interface Props {
   data: IRPFAppState;
-  setData: (update: IRPFAppState | ((prev: IRPFAppState) => IRPFAppState)) => void;
+  onAddCard: (card: IRPFCard) => void;
 }
 
-export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
+export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCard, setSelectedCard] = useState<IRPFCard | null>(null);
   const [selectedForMessage, setSelectedForMessage] = useState<Set<string>>(new Set());
@@ -79,20 +80,23 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target?.result as string;
+      const parser = new IRPFParser(content);
       const lines = content.split(/\r?\n/);
-      const firstLine = lines[0] || '';
-
-      // Se não achou no nome, tenta pegar do registro 00 do .DEC (posições 1-11)
-      if (!cpf && firstLine.length >= 11) {
-        const potentialCpf = firstLine.substring(0, 11).replace(/\D/g, '');
-        if (potentialCpf.length === 11) cpf = potentialCpf;
+      
+      // ── EXTRAÇÃO INTELIGENTE (Header) ──
+      const headerLine = lines.find(l => l.startsWith('IRPF'));
+      const header = headerLine ? parser.parseHeader(headerLine) : null;
+      
+      let cpf = header?.cpf || '';
+      // Se não achou no header, tenta no nome do arquivo (fallback)
+      if (!cpf) {
+        const cpfMatch = file.name.match(/\d{11}/);
+        cpf = cpfMatch ? cpfMatch[0] : '38339202898';
       }
 
-      // Se ainda não tem CPF, usa o padrão do mock (apenas para evitar crash em arquivos inválidos)
-      if (!cpf) cpf = '38339202898';
-
-      // ── VALIDAÇÃO DE DUPLICIDADE (Normalizada) ──
       const normalizedCpf = cpf.replace(/\D/g, '');
+      
+      // ── VALIDAÇÃO DE DUPLICIDADE (Normalizada) ──
       const allCards = data.columns.flatMap(col => col.cards);
       const existingCard = allCards.find(c => c.cpf.replace(/\D/g, '') === normalizedCpf);
       
@@ -102,11 +106,12 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
         return;
       }
 
-      // Formata o CPF para exibição (###.###.###-##)
       const formattedCpf = normalizedCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-
-      let extractedName = firstLine.substring(17, 77).replace(/^[^a-zA-Z]+/, '').trim();
-      if (!extractedName || extractedName.length < 3) extractedName = `Cliente ${formattedCpf.substring(0, 3)}...`;
+      
+      let extractedName = header?.nome || '';
+      if (!extractedName || extractedName.length < 3) {
+        extractedName = `Cliente ${formattedCpf.substring(0, 3)}...`;
+      }
 
       // ── Tabela de códigos de pagamento (cd_pagto) ─────────────────────────
       const PAGTO_DESC: Record<number, { doc: string; ficha: string }> = {
@@ -171,153 +176,48 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
       };
 
       // ── PASSO 1: pré-carregar mapa de dependentes chave→nome ─────────────
+      // ── FUNÇÃO DE LIMPEZA DE NOMES ──
+      const cleanName = (name: string) => {
+        // Remove códigos iniciais tipo 000123... colados ao nome
+        return name.replace(/^[0-9\s]{3,15}/, '').trim();
+      };
+
       const depMap: Record<string, string> = {};
       lines.forEach(line => {
         if (line.length < 13 || line.substring(0, 2) !== '25') return;
-        // nr_chave pos 14-18 (idx 13-18), nm_depend pos 21-80 (idx 20-80)
-        const chave = line.substring(13, 18).trim();
-        const nome  = line.substring(20, 80).trim();
-        if (chave && nome) depMap[chave] = nome;
+        const dep = parser.parseDependentes(line);
+        if (dep.chave && dep.nome) depMap[dep.chave] = cleanName(dep.nome);
       });
 
-      // ── PASSO 2: Itens fixos de CADASTRO ─────────────────────────────────
-      const subTasks: SubTask[] = [
-        { id: uuidv4(), title: 'RG / CPF atualizado do titular', completed: false, category: 'CADASTRO' },
-        { id: uuidv4(), title: 'Comprovante de Residência atualizado', completed: false, category: 'CADASTRO' },
-        { id: uuidv4(), title: 'Cópia da Declaração e Recibo do ano anterior', completed: false, category: 'CADASTRO' },
-        { id: uuidv4(), title: 'Título de Eleitor (para verificar domicílio eleitoral)', completed: false, category: 'CADASTRO' },
-        { id: uuidv4(), title: 'Dados bancários para restituição (banco, agência, conta)', completed: false, category: 'CADASTRO' },
-      ];
+      // ── PASSO 2-4: Gerar Checklist usando o novo Motor de Inteligência ──
+      const checklistEngine = new ChecklistEngine(parser);
+      const subTasks = checklistEngine.generate(lines, depMap);
 
-      const seen = new Set<string>();
-      const addTask = (title: string, category: string) => {
-        const key = `${category}::${title}`;
-        if (!seen.has(key) && title.trim().length > 4) {
-          seen.add(key);
-          subTasks.push({ id: uuidv4(), title, completed: false, category });
-        }
-      };
-
-      // ── PASSO 3: Percorrer linhas e extrair registros ─────────────────────
-      lines.forEach(line => {
-        if (line.length < 13) return;
-        const type = line.substring(0, 2);
-
-        // REG 25 - Dependentes
-        if (type === '25') {
-          const nome = line.substring(20, 80).trim();
-          if (nome) addTask(`RG / CPF / Certidão de nascimento de: ${nome}`, 'DEPENDENTES');
-        }
-
-        // REG 21 - Rendimentos PJ (Titular)
-        if (type === '21') {
-          const nome = line.substring(27, 87).trim();
-          if (nome) addTask(`Informe de Rendimentos do Empregador/PJ: ${nome}`, 'RENDIMENTOS_PJ');
-        }
-
-        // REG 32 - Rendimentos PJ (Dependentes)
-        if (type === '32') {
-          const nome = line.substring(38, 98).trim();
-          if (nome) addTask(`Informe de Rendimentos (Dependente) do empregador: ${nome}`, 'RENDIMENTOS_PJ');
-        }
-
-        // REG 22 - Carnê-Leão / PF / Exterior
-        if (type === '22') {
-          addTask('Livro Caixa e Carnê-Leão (aluguéis, serviços a PF, exterior)', 'RENDIMENTOS_PF');
-        }
-
-        // REG 26 - Pagamentos
-        if (type === '26') {
-          // cd_pagto: pos 14-15 → idx 13-15 (2 chars)
-          const cod = parseInt(line.substring(13, 15).trim()) || 99;
-          // nr_chave_depend: pos 16-20 → idx 15-20 (5 chars)
-          const chaveDepInt = parseInt(line.substring(15, 20).trim()) || 0;
-          // nm_benef: pos 35-94 → idx 34-94
-          const benef = line.substring(34, 94).trim();
-
-          const info = PAGTO_DESC[cod] || { doc: 'Comprovante de Pagamento', ficha: 'OUTROS' };
-          const paraQuem = chaveDepInt > 0
-            ? ` — para dependente: ${depMap[String(chaveDepInt).padStart(5, '0')] || `Dep.${chaveDepInt}`}`
-            : '';
-
-          if (benef) addTask(`${info.doc} — ${benef}${paraQuem}`, info.ficha);
-        }
-
-        // REG 27 - Bens e Direitos
-        if (type === '27') {
-          const cdBem = line.substring(13, 15).trim().padStart(2, '0');
-          const desc  = line.substring(19, 531).trim();
-          if (!desc) return;
-
-          const g = BEM_GRUPO[cdBem] || { label: 'Outros Bens', ficha: 'BENS_OUTROS' };
-          let solicitacao = '';
-
-          if (cdBem === '01')        solicitacao = `Extrato/Nota de Corretora: ${desc}`;
-          else if (cdBem === '02')   solicitacao = `Extrato Bancário/CDB: ${desc}`;
-          else if (cdBem === '03')   solicitacao = `Extrato de Renda Fixa (LCI/LCA/CRA/Tesouro): ${desc}`;
-          else if (cdBem === '04')   solicitacao = `CRLV / Documento do Veículo: ${desc}`;
-          else if (cdBem === '05')   solicitacao = `Contrato Social / Informe da Empresa: ${desc}`;
-          else if (cdBem === '07')   solicitacao = `Informe de JCP/Dividendos: ${desc}`;
-          else if (cdBem === '08')   solicitacao = `Extrato de Ativo Exterior: ${desc}`;
-          else if (cdBem === '09')   solicitacao = `Comprovante de Saldo em Moeda Estrangeira: ${desc}`;
-          else if (cdBem === '10')   solicitacao = `Declaração de Dinheiro em Espécie: ${desc}`;
-          else if (cdBem === '11')   solicitacao = `Extrato de Ativo Financeiro no Exterior: ${desc}`;
-          else if (cdBem === '14')   solicitacao = `ITR / Documentação do Imóvel Rural: ${desc}`;
-          else if (cdBem === '99')   solicitacao = `Extrato/Doc. de Bem no Exterior: ${desc}`;
-          else                       solicitacao = `Documentação de ${g.label}: ${desc}`;
-
-          addTask(solicitacao.substring(0, 130), g.ficha);
-        }
-
-        // REG 84 - Informes DEDINF (8A - Ações/Fundos)
-        if (type === '84') {
-          const nome = line.substring(37, 97).trim();
-          if (nome) addTask(`Informe de Rendimentos (Corretora/Ação): ${nome}`, 'RENDIMENTOS_RV');
-        }
-
-        // REG 86 - FII DEDINF (8F)
-        if (type === '86') {
-          const nome = line.substring(37, 97).trim();
-          if (nome) addTask(`Informe de Rendimentos de FII: ${nome}`, 'RENDIMENTOS_RV');
-        }
-
-        // REG 88 - JCP/Dividendos DEDINF (8H)
-        if (type === '88') {
-          const nome = line.substring(37, 97).trim();
-          if (nome) addTask(`Informe de JCP / Dividendos: ${nome}`, 'RENDIMENTOS_RV');
-        }
-
-        // REG 89 - Rendimentos Isentos DEDINF (8I)
-        if (type === '89') {
-          const nome = line.substring(37, 97).trim();
-          if (nome) addTask(`Comprovante de Rendimento Isento: ${nome}`, 'RENDIMENTOS_ISENTOS');
-        }
-
-        // REG 90 - Doações Incentivadas
-        if (type === '90') {
-          const nome = line.substring(27, 67).trim();
-          if (nome) addTask(`Recibo de Doação Incentivada: ${nome}`, 'DOACOES');
-        }
-      });
-
-      // Itens padrão sempre solicitados
-      addTask('Extratos de todas as contas bancárias (saldo em 31/12)', 'RENDIMENTOS_PF');
+      // ── EXTRAÇÃO DE TOTAIS (REG 20) ──
+      const totalsLine = lines.find(l => l.startsWith('20'));
+      const totals = totalsLine ? parser.parseTotais(totalsLine) : null;
+      const currentAssets = totals?.bensAtual || new Decimal(0);
 
       // ── PASSO 4: Criar Perfil do Cliente Extraído ─────────────────────────
-      const clientProfile = {
-        hasForeignIncome: lines.some(l => l.substring(0, 2) === '22'),
-        hasStockMarket: lines.some(l => ['27', '84', '86', '88'].includes(l.substring(0, 2))),
-        hasRentalIncome: lines.some(l => l.substring(0, 2) === '22'), // simplificado
+      const clientProfile: any = {
+        hasDependents: lines.some(l => l.startsWith('25')),
+        hasMultiplePayingSources: lines.filter(l => l.startsWith('21')).length > 1,
+        hasProlabore: lines.some(l => l.startsWith('21')), // Simplificado
+        hasLivroCaixa: lines.some(l => l.startsWith('22')),
+        hasVariableIncome: lines.some(l => ['84', '86', '88'].includes(l.substring(0, 2))),
+        hasOverseasAssets: lines.some(l => l.substring(0, 2) === '27' && ['08', '09', '11', '99'].includes(l.substring(13, 15))),
+        hasRealEstate: lines.some(l => l.substring(0, 2) === '27' && ['01', '11', '12', '13', '14', '15'].includes(l.substring(13, 15))), // Códigos de imóveis
+        hasDonations: lines.some(l => l.startsWith('90')),
         hasRuralActivity: lines.some(l => l.substring(0, 2) === '27' && l.substring(13, 15) === '14'),
-        hasForeignAssets: lines.some(l => l.substring(0, 2) === '27' && ['08', '09', '11', '99'].includes(l.substring(13, 15))),
-        hasDependents: lines.some(l => l.substring(0, 2) === '25'),
-        isHighNetWorth: false, // seria calculado por valor total de bens
-        isComplexityManuallySet: false
+        hasCompanyParticipation: lines.some(l => l.substring(0, 2) === '27' && l.substring(13, 15) === '05'),
+        hasCapitalGain: false, // Difícil detectar via DEC sem ficha 50
+        hasJCP: lines.some(l => l.startsWith('86')),
+        hasFinancing: false,
+        isHighNetWorth: currentAssets.gt(1000000)
       };
 
-      // ── PASSO 5: Gerar Checklist Base + Itens Extraídos ───────────────────
-      const baseChecklist = generateBaseChecklist(clientProfile);
-      const combinedTasks = [...baseChecklist, ...subTasks];
+      // ── PASSO 5: Usar as tarefas geradas pelo motor ────────────────────────
+      const combinedTasks = subTasks;
 
       // ── PASSO 6: Inicializar Novo Card com Inteligência ───────────────────
       const newCard: IRPFCard = {
@@ -325,7 +225,7 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
         clientName: extractedName,
         cpf: formattedCpf,
         phone: '', // Pode ser preenchido manualmente
-        type: 'COMPLETA',
+        type: (header?.tipoDeclaracao as 'COMPLETA' | 'SIMPLIFICADA') || 'COMPLETA',
         complexityScore: calculateComplexityScore(clientProfile),
         riskLevel: 'BAIXO',
         statusDoc: 'PENDENTE',
@@ -343,7 +243,7 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
           autoAlerts: [],
           technicalNotes: '',
           previousYearAssets: 0,
-          currentYearAssets: 0
+          currentYearAssets: currentAssets.toNumber()
         },
         financial: {
           modality: 'COMPLETA',
@@ -362,12 +262,7 @@ export const PreparationTab: React.FC<Props> = ({ data, setData }) => {
         }]
       };
 
-      setData(prev => ({
-        ...prev,
-        columns: prev.columns.map(col =>
-          col.id === 'preparacao' ? { ...col, cards: [newCard, ...col.cards] } : col
-        ),
-      }));
+      onAddCard(newCard);
       event.target.value = '';
     };
     reader.readAsText(file);

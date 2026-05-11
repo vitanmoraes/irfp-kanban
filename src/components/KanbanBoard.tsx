@@ -3,13 +3,20 @@ import { Column } from './Column';
 import { Search, Filter, AlertTriangle, Users, Clock, Keyboard, Send } from 'lucide-react';
 import { ProcessDetailsModal } from './ProcessDetailsModal';
 import type { IRPFCard, SubTask, IRPFAppState } from '../types';
+import { COLLABORATORS } from '../data/collaborators';
 
 interface Props {
   data: IRPFAppState;
-  setData: (newData: IRPFAppState) => void;
+  onMoveCard: (cardId: string, targetColumnId: string) => void;
+  onUpdateCard: (cardId: string, updates: Partial<IRPFCard>) => void;
+  onDeleteCard: (cardId: string) => void;
+  onAddCommunication: (cardId: string, entry: any) => void;
+  onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
 }
 
-export const KanbanBoard: React.FC<Props> = ({ data, setData }) => {
+export const KanbanBoard: React.FC<Props> = ({ 
+  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterRisk, setFilterRisk] = useState<string>('all');
@@ -21,38 +28,11 @@ export const KanbanBoard: React.FC<Props> = ({ data, setData }) => {
   const kanbanColumns = data.columns;
 
   const moveCard = (cardId: string, targetColumnId: string) => {
-    setData({
-      ...data,
-      columns: data.columns.map(col => {
-        const card = col.cards.find(c => c.id === cardId);
-        if (card) {
-          // Remove da coluna atual
-          const newSourceCards = col.cards.filter(c => c.id !== cardId);
-          // Se for a coluna destino, adicionamos (tratado no próximo map item)
-          return { ...col, cards: newSourceCards };
-        }
-        if (col.id === targetColumnId) {
-          // Adiciona na coluna destino
-          const sourceCol = data.columns.find(c => c.cards.some(card => card.id === cardId));
-          const movingCard = sourceCol?.cards.find(c => c.id === cardId);
-          return movingCard ? { ...col, cards: [movingCard, ...col.cards] } : col;
-        }
-        return col;
-      })
-    });
+    onMoveCard(cardId, targetColumnId);
   };
 
   const updateCardDetails = (cardId: string, updates: Partial<IRPFCard>) => {
-    setData({
-      ...data,
-      columns: data.columns.map(col => ({
-        ...col,
-        cards: col.cards.map(card => 
-          card.id === cardId ? { ...card, ...updates } : card
-        )
-      }))
-    });
-    
+    onUpdateCard(cardId, updates);
     if (selectedCard?.id === cardId) {
       setSelectedCard(prev => prev ? { ...prev, ...updates } : null);
     }
@@ -60,13 +40,7 @@ export const KanbanBoard: React.FC<Props> = ({ data, setData }) => {
 
   const deleteCard = (cardId: string) => {
     if (!window.confirm('Tem certeza que deseja excluir este cliente?')) return;
-    setData({
-      ...data,
-      columns: data.columns.map(col => ({
-        ...col,
-        cards: col.cards.filter(card => card.id !== cardId)
-      }))
-    });
+    onDeleteCard(cardId);
   };
 
   const filteredColumns = data.columns.map(col => ({
@@ -165,6 +139,9 @@ export const KanbanBoard: React.FC<Props> = ({ data, setData }) => {
               onCardClick={(card) => setSelectedCard({ ...card, columnId: column.id } as any)}
               onCardDrop={(cardId) => moveCard(cardId, column.id)}
               onDeleteCard={deleteCard}
+              onUpdateCard={updateCardDetails}
+              onAddCommunication={onAddCommunication}
+              onAddAuditEntry={onAddAuditEntry}
             />
           ))}
         </div>
@@ -183,6 +160,8 @@ export const KanbanBoard: React.FC<Props> = ({ data, setData }) => {
             );
             updateCardDetails(selectedCard.id, { subTasks: newTasks });
           }}
+          onAddCommunication={onAddCommunication}
+          onAddAuditEntry={onAddAuditEntry}
         />
       )}
     </div>

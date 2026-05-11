@@ -4,14 +4,16 @@ import { motion } from 'framer-motion';
 import {
   Clock, CheckSquare, User, Trash2,
   FileText, Wrench, MessageCircle, DollarSign,
-  AlertTriangle, ShieldAlert
+  AlertTriangle, ShieldAlert, MessageSquare
 } from 'lucide-react';
 import { COLLABORATORS } from '../data/collaborators';
 import {
   COMPLEXITY_COLORS, COMPLEXITY_LABELS,
   RISK_COLORS, RISK_LABELS,
-  DOC_STATUS_COLORS, DOC_STATUS_LABELS
+  DOC_STATUS_COLORS, DOC_STATUS_LABELS,
+  calculateComplexityScore
 } from '../utils/scoreCalculator';
+import { getAlertStatus } from '../utils/communicationManager';
 
 interface Props {
   card: IRPFCard;
@@ -52,6 +54,9 @@ const CLIENT_COLORS: Record<string, string> = {
 // ============================================================
 
 export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete }) => {
+  const complexity = calculateComplexityScore(card.clientProfile);
+  const alert = getAlertStatus(card, columnId);
+
   const completedTasks = card.subTasks.filter(t => t.completed).length;
   const totalTasks     = card.subTasks.length;
   const progress       = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
@@ -85,6 +90,18 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete })
         {/* Faixa de risco crítico */}
         {card.riskLevel === 'CRITICO' && (
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 to-orange-500" />
+        )}
+
+        {/* Alerta de Comunicação */}
+        {alert.level !== 'normal' && (
+          <div className={`mb-1 p-2 rounded-lg flex items-center gap-2 text-xs border ${
+            alert.level === 'danger' 
+              ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+          }`}>
+            <MessageSquare size={14} />
+            <span className="font-medium">{alert.message}</span>
+          </div>
         )}
 
         {/* ---- Linha 1: Nome + Badges topo ---- */}

@@ -1,20 +1,39 @@
 import React, { useState } from 'react';
-import { initialData } from './mockData';
 import { Layout, ClipboardList, Columns, BarChart3, Brain, Settings } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { PreparationTab } from './components/PreparationTab';
 import { KanbanBoard } from './components/KanbanBoard';
 import { IntelligenceTab } from './components/IntelligenceTab';
 import { SettingsTab } from './components/SettingsTab';
-import type { IRPFAppState, IRPFCard } from './types';
+import type { IRPFAppState } from './types';
+import { useIRPFData } from './hooks/useIRPFData';
 
 function App() {
-  const [data, setData] = useState<IRPFAppState>(initialData);
+  const { 
+    data, loading, error, addCard, updateCard, moveCard, deleteCard, addCommunication, addAuditEntry 
+  } = useIRPFData();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'preparacao' | 'kanban' | 'inteligencia' | 'configuracoes'>('dashboard');
 
-  const updateData = (update: IRPFAppState | ((prev: IRPFAppState) => IRPFAppState)) => {
-    setData(update);
-  };
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-[#0f172a] flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+        <p className="text-slate-400 font-bold animate-pulse">Sincronizando com Supabase...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen w-full bg-[#0f172a] flex flex-col items-center justify-center gap-4 p-8 text-center">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-400 max-w-md">
+          <h2 className="font-bold mb-2">Erro de Conexão</h2>
+          <p className="text-sm">{error}</p>
+        </div>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-bold transition-all">Tentar Novamente</button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full bg-[#0f172a] text-slate-200 overflow-hidden">
@@ -77,8 +96,22 @@ function App() {
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 pointer-events-none" />
         
         {activeTab === 'dashboard' && <Dashboard data={data} />}
-        {activeTab === 'preparacao' && <PreparationTab data={data} setData={updateData} />}
-        {activeTab === 'kanban' && <KanbanBoard data={data} setData={updateData} />}
+        {activeTab === 'preparacao' && (
+          <PreparationTab 
+            data={data} 
+            onAddCard={addCard} 
+          />
+        )}
+        {activeTab === 'kanban' && (
+          <KanbanBoard 
+            data={data} 
+            onUpdateCard={updateCard}
+            onMoveCard={moveCard}
+            onDeleteCard={deleteCard}
+            onAddCommunication={addCommunication}
+            onAddAuditEntry={addAuditEntry}
+          />
+        )}
         {activeTab === 'inteligencia' && <IntelligenceTab />}
         {activeTab === 'configuracoes' && <SettingsTab />}
       </main>

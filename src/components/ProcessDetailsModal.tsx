@@ -15,6 +15,8 @@ import {
   DOC_STATUS_COLORS, DOC_STATUS_LABELS 
 } from '../utils/scoreCalculator';
 import { gateProgress } from '../utils/gateValidator';
+import { COMMUNICATION_TEMPLATES } from '../utils/communicationManager';
+import { calculateSuggestedFee } from '../utils/financialManager';
 
 interface Props {
   card: IRPFCard;
@@ -23,11 +25,15 @@ interface Props {
   onClose: () => void;
   onToggleTask: (taskId: string) => void;
   onUpdateCard: (updates: Partial<IRPFCard>) => void;
+  onAddCommunication: (cardId: string, entry: any) => void;
+  onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
 }
 
-type TabId = 'resumo' | 'documentos' | 'checklist' | 'digitacao' | 'conferencia' | 'analise' | 'cliente' | 'financeiro' | 'transmissao' | 'extras';
+type TabId = 'resumo' | 'documentos' | 'checklist' | 'digitacao' | 'conferencia' | 'analise' | 'cliente' | 'financeiro' | 'transmissao' | 'extras' | 'auditoria';
 
-export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, onClose, onToggleTask, onUpdateCard }) => {
+export const ProcessDetailsModal: React.FC<Props> = ({ 
+  card, columnId, isOpen, onClose, onToggleTask, onUpdateCard, onAddCommunication, onAddAuditEntry 
+}) => {
   const [activeTab, setActiveTab] = useState<TabId>('resumo');
 
   if (!isOpen) return null;
@@ -44,6 +50,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, o
     { id: 'cliente', label: 'Cliente', icon: MessageCircle },
     { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
     { id: 'transmissao', label: 'Transmissão', icon: Send },
+    { id: 'auditoria', label: 'Histórico', icon: History },
     { id: 'extras', label: 'Extras', icon: PlusCircle },
   ];
 
@@ -302,7 +309,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, o
         );
 
       case 'financeiro':
-        const complexityFactor = (card.complexityScore.total * 10);
+        const suggestion = calculateSuggestedFee(card);
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -311,6 +318,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, o
                   <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                     <DollarSign size={18} className="text-emerald-400" /> Gestão de Honorários
                   </h4>
+                  
                   <div className="grid grid-cols-2 gap-6 mb-8">
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
                       <p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Valor Ano Anterior</p>
@@ -321,8 +329,20 @@ export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, o
                     <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
                       <p className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Sugestão do Sistema</p>
                       <p className="text-xl font-bold text-white">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((card.financial.previousYearValue || 350) + complexityFactor)}
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(suggestion.total)}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <h5 className="text-[10px] text-slate-500 font-bold uppercase mb-3">Composição do Valor Sugerido</h5>
+                    <div className="space-y-2">
+                      {suggestion.reasons.map((reason, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs text-slate-400 p-2 rounded-lg bg-white/5">
+                          <span>{reason.split(': ')[0]}</span>
+                          <span className="font-mono text-emerald-400">{reason.split(': ')[1] || ''}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   
@@ -379,6 +399,88 @@ export const ProcessDetailsModal: React.FC<Props> = ({ card, columnId, isOpen, o
             </div>
           </div>
         );
+
+      case 'cliente':
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                  <MessageCircle size={24} className="text-blue-400" /> Régua de Comunicação
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                  {COMMUNICATION_TEMPLATES.map(template => (
+                    <button
+                      key={template.id}
+                      onClick={() => {
+                        const body = template.body(card);
+                        navigator.clipboard.writeText(body);
+                        onAddCommunication(card.id, { type: template.title, message: body });
+                        onAddAuditEntry(card.id, 'COMUNICACAO', `Mensagem copiada: ${template.title}`);
+                        alert('Mensagem copiada para o clipboard!');
+                      }}
+                      className="p-6 text-left glass-morphism rounded-3xl border border-white/5 hover:border-blue-500/30 transition-all group"
+                    >
+                      <p className="text-sm font-bold text-white group-hover:text-blue-400 mb-1">{template.title}</p>
+                      <p className="text-xs text-slate-500 line-clamp-2">Clique para copiar e enviar via WhatsApp/E-mail.</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-white mb-6">Histórico de Contatos</h3>
+                <div className="space-y-4">
+                  {card.communications && card.communications.length > 0 ? (
+                    card.communications.map((comm, idx) => (
+                      <div key={idx} className="p-4 rounded-2xl bg-white/5 border border-white/5">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-bold text-blue-400 uppercase">{comm.type}</span>
+                          <span className="text-[10px] text-slate-500">{new Date(comm.timestamp).toLocaleString()}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-relaxed italic line-clamp-2">"{comm.message}"</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center glass-morphism rounded-3xl border border-dashed border-white/10">
+                      <p className="text-xs text-slate-500 font-medium">Nenhuma comunicação registrada ainda.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'auditoria':
+        return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+             <div className="space-y-4">
+                {card.auditTrail && card.auditTrail.length > 0 ? (
+                  card.auditTrail.map((log, idx) => (
+                    <div key={idx} className="flex gap-4 p-4 rounded-2xl hover:bg-white/5 transition-all border-b border-white/5">
+                      <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
+                         <History size={16} className="text-slate-400" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                           <p className="text-sm font-bold text-white">{log.action}</p>
+                           <span className="text-[10px] text-slate-500">{new Date(log.timestamp).toLocaleString()}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">{log.details}</p>
+                        <p className="text-[10px] text-slate-600 mt-2">Usuário: {log.user_name}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                   <p className="text-sm text-slate-500 text-center py-10">Nenhum histórico disponível.</p>
+                )}
+             </div>
+          </div>
+        );
+
+      default:
+        return <div className="text-center py-20 text-slate-500">Conteúdo em desenvolvimento...</div>;
     }
   };
 

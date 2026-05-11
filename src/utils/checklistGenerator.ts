@@ -172,7 +172,7 @@ const CHECKLIST_RULES: ChecklistRule[] = [
 // Função Principal
 // ============================================================
 
-export function generateChecklist(profile: ClientProfile): SubTask[] {
+export function generateBaseChecklist(profile: ClientProfile): SubTask[] {
   const tasks: SubTask[] = [];
 
   for (const rule of CHECKLIST_RULES) {

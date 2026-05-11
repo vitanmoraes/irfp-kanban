@@ -121,3 +121,19 @@ export const IRPF_PROCESS: Record<string, ProcessStep> = {
     ]
   }
 };
+
+// Gates de Qualidade - Requisitos obrigatórios para avançar no processo
+export const INITIAL_GATES_DIGITACAO = [
+  { id: 'gate_dig_1', label: 'Procuração Ativa no e-CAC', completed: false },
+  { id: 'gate_dig_2', label: 'Declaração Anterior Disponível', completed: false },
+  { id: 'gate_dig_3', label: 'Perfil Fiscal Identificado', completed: false },
+  { id: 'gate_dig_4', label: 'Honorário Negociado/Aprovado', completed: false }
+];
+
+export const INITIAL_GATES_TRANSMISSAO = [
+  { id: 'gate_trans_1', label: 'Conferência Geral Finalizada', completed: false },
+  { id: 'gate_trans_2', label: 'Variação Patrimonial Validada', completed: false },
+  { id: 'gate_trans_3', label: 'Aprovação Formal do Cliente', completed: false },
+  { id: 'gate_trans_4', label: 'Conta Bancária de Restituição Conferida', completed: false }
+];
+

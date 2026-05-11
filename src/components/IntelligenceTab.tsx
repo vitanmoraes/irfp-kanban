@@ -4,6 +4,7 @@ import { Search, Sparkles, FileText, Download, ChevronRight, MessageSquare, Book
 import ReactMarkdown from 'react-markdown';
 import { INTELLIGENCE_SKILLS, QUICK_TIPS } from '../data/intelligenceSkills';
 import knowledgeIndex from '../data/knowledge_index.json';
+import { IRPF_KNOWLEDGE_BASE } from '../data/knowledgeBase';
 
 interface SearchMatch {
   filename: string;
@@ -163,6 +164,41 @@ export const IntelligenceTab: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-12">
           
+          {/* Tópicos Estratégicos (Novo) */}
+          {search.length < 3 && (
+            <section className="mb-12">
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <ShieldCheck size={24} className="text-emerald-400" />
+                    Consultoria Estratégica
+                  </h2>
+                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/5">Legislação 2025</span>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {IRPF_KNOWLEDGE_BASE.map(topic => (
+                    <div key={topic.id} className="p-6 glass-morphism rounded-[2rem] border border-white/5 hover:border-emerald-500/30 transition-all group flex flex-col">
+                       <div className="flex justify-between items-start mb-4">
+                          <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded uppercase tracking-tighter">{topic.category}</span>
+                          <ExternalLink size={16} className="text-slate-600 group-hover:text-emerald-400 transition-colors cursor-pointer" onClick={() => window.open(topic.link, '_blank')} />
+                       </div>
+                       <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">{topic.title}</h3>
+                       <p className="text-xs text-slate-400 leading-relaxed mb-6 line-clamp-3">{topic.summary}</p>
+                       
+                       <div className="mt-auto space-y-2">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pontos de Atenção</p>
+                          {topic.criticalPoints.map((p, i) => (
+                            <div key={i} className="flex gap-2 items-start text-[10px] text-slate-300 bg-white/5 p-2 rounded-lg border border-white/5">
+                               <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                               {p}
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            </section>
+          )}
+
           {/* Resultados da Busca Exata */}
           <AnimatePresence>
             {search.length >= 3 && (

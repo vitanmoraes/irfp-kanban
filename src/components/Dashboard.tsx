@@ -3,10 +3,11 @@ import type { IRPFAppState } from '../types';
 import { 
   Users, Clock, Keyboard, Send, CheckCircle2, TrendingUp, 
   AlertCircle, Search, Scale, DollarSign, ShieldAlert,
-  BarChart3, PieChart, Activity
+  BarChart3, PieChart as PieIcon, Activity, Layout
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { COLLABORATORS } from '../data/collaborators';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface Props {
   data: IRPFAppState;
@@ -22,15 +23,24 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const stuckCards = allCards.filter(c => c.daysActive > 7).length;
 
   // Métricas Financeiras
-  const totalHonoraries = allCards.reduce((acc, c) => acc + (c.financial.approvedValue || 0), 0);
-  const paidHonoraries = allCards.filter(c => c.financial.status === 'PAGO').reduce((acc, c) => acc + (c.financial.approvedValue || 0), 0);
+  const totalApproved = allCards.reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
+  const paidHonoraries = allCards.filter(c => c.financial?.status === 'PAGO').reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
+  const totalSuggested = allCards.reduce((acc, c) => acc + (c.complexityScore?.total * 25 + 350 || 0), 0);
 
   const stats = [
     { label: 'Total de Clientes', value: totalClients, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
     { label: 'Risco Crítico', value: criticalRiskCount, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-500/10' },
     { label: 'Cards Parados', value: stuckCards, icon: Clock, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    { label: 'Honorários Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalHonoraries), icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { label: 'Taxa de Recebimento', value: totalHonoraries > 0 ? `${Math.round((paidHonoraries / totalHonoraries) * 100)}%` : '0%', icon: Activity, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+    { label: 'Honorários Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalApproved), icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    { label: 'Faturamento Sugerido', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalSuggested), icon: TrendingUp, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+  ];
+
+  // Dados para os Gráficos
+  const riskData = [
+    { name: 'Baixo', value: allCards.filter(c => c.riskLevel === 'BAIXO').length, color: '#10b981' },
+    { name: 'Médio', value: allCards.filter(c => c.riskLevel === 'MEDIO').length, color: '#f59e0b' },
+    { name: 'Alto', value: allCards.filter(c => c.riskLevel === 'ALTO').length, color: '#f97316' },
+    { name: 'Crítico', value: allCards.filter(c => c.riskLevel === 'CRITICO').length, color: '#ef4444' },
   ];
 
   return (
@@ -71,68 +81,79 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             </motion.div>
           ))}
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          {/* Gráfico de Risco */}
+          <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 h-[400px] flex flex-col">
+            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+              <ShieldAlert size={20} className="text-red-400" /> Distribuição de Risco
+            </h3>
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={riskData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={8}
+                    dataKey="value"
+                  >
+                    {riskData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                    itemStyle={{ color: '#fff', fontSize: '12px' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+               {riskData.map(r => (
+                 <div key={r.name} className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: r.color }} />
+                    {r.name.toUpperCase()}: {r.value}
+                 </div>
+               ))}
+            </div>
+          </div>
+
           {/* Funil Operacional */}
           <div className="lg:col-span-2 glass-morphism p-8 rounded-[2.5rem] border border-white/5">
-            <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-2">
-              <BarChart3 size={20} className="text-emerald-400" /> Funil Operacional
-            </h3>
+            <div className="flex justify-between items-center mb-8">
+               <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <BarChart3 size={20} className="text-emerald-400" /> Funil Operacional
+              </h3>
+              <Layout size={18} className="text-slate-600" />
+            </div>
             <div className="space-y-6">
               {data.columns.map((column, i) => {
                 const count = column.cards.length;
                 const percentage = totalClients > 0 ? (count / totalClients) * 100 : 0;
-                const isGargalo = count > 5; // Exemplo de regra de gargalo
+                const isGargalo = count > 5;
 
                 return (
                   <div key={column.id} className="relative">
                     <div className="flex justify-between text-xs mb-2">
                       <div className="flex items-center gap-2">
                          <span className="text-slate-300 font-bold">{column.title}</span>
-                         {isGargalo && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-black">GARGALO</span>}
+                         {isGargalo && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-black tracking-tighter">ALTA DEMANDA</span>}
                       </div>
-                      <span className="text-slate-500 font-bold">{count}</span>
+                      <span className="text-white font-mono">{count}</span>
                     </div>
-                    <div className="h-2.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                    <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${percentage}%` }}
-                        transition={{ duration: 1, delay: i * 0.1 }}
-                        className={`h-full rounded-full ${isGargalo ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        className={`h-full rounded-full ${isGargalo ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-emerald-500 to-blue-500'}`}
                       />
                     </div>
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Distribuição de Complexidade */}
-          <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-2">
-              <PieChart size={20} className="text-indigo-400" /> Complexidade da Carteira
-            </h3>
-            <div className="flex-1 flex flex-col justify-center gap-6">
-               {['SIMPLES', 'MEDIA', 'COMPLEXA', 'CRITICA'].map((level) => {
-                 const count = allCards.filter(c => c.complexityScore.classification === level).length;
-                 const pct = totalClients > 0 ? Math.round((count / totalClients) * 100) : 0;
-                 const colors: any = { SIMPLES: 'bg-emerald-500', MEDIA: 'bg-blue-500', COMPLEXA: 'bg-amber-500', CRITICA: 'bg-red-500' };
-
-                 return (
-                   <div key={level} className="flex items-center gap-4">
-                     <div className={`w-3 h-3 rounded-full ${colors[level]}`} />
-                     <div className="flex-1">
-                        <div className="flex justify-between text-[10px] font-bold mb-1">
-                           <span className="text-slate-400">{level}</span>
-                           <span className="text-white">{pct}%</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-white/5 rounded-full">
-                           <div className={`h-full rounded-full ${colors[level]}`} style={{ width: `${pct}%` }} />
-                        </div>
-                     </div>
-                   </div>
-                 );
-               })}
             </div>
           </div>
         </div>
