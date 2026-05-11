@@ -64,25 +64,19 @@ const ExecutorSelector = ({
               const name = collaborators.find(c => c.id === val)?.name || 'Ninguém';
               onAddAuditEntry(card.id, `Executor atribuído: ${label}`, `Executor: ${name}`);
             }}
-            style={{
-              backgroundColor: '#1e293b',
-              color: 'white',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '12px 16px',
-              borderRadius: '16px',
-              width: '100%',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              outline: 'none'
-            }}
+            className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none cursor-pointer hover:border-indigo-500/40 transition-all shadow-xl"
+            style={{ backgroundColor: '#0f172a' }}
           >
-            <option value="" style={{ backgroundColor: '#0f172a', color: '#64748b' }}>Selecionar executor responsável...</option>
+            <option value="" style={{ backgroundColor: '#0f172a' }} className="text-slate-500">Atribuir executor responsável...</option>
             {collaborators.map(c => (
-              <option key={c.id} value={c.id} style={{ backgroundColor: '#0f172a', color: 'white' }}>
-                {c.name} ({c.role})
+              <option key={c.id} value={c.id} style={{ backgroundColor: '#0f172a' }} className="text-white">
+                {c.name} • {c.role}
               </option>
             ))}
           </select>
+          <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
+            <PlusCircle size={18} />
+          </div>
         </div>
       </div>
       {currentExecutor && (
@@ -171,31 +165,46 @@ export const ProcessDetailsModal: React.FC<Props> = ({
               </div>
             </div>
 
-             {/* Responsável Geral */}
+             {/* Responsável Geral - Dropdown */}
              <div className="glass-morphism p-8 rounded-3xl border border-white/5">
-                <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
-                  <Users size={18} className="text-emerald-400" /> Responsável Geral pelo Cliente
-                </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {collaborators.map((col) => (
-                    <button
-                      key={col.id}
-                      onClick={() => {
-                        onUpdateCard({ responsible: col.id });
-                        onAddAuditEntry(card.id, 'Responsável Geral alterado', `Novo responsável: ${col.name}`);
-                      }}
-                      className={`p-4 rounded-2xl border text-[10px] font-bold transition-all text-center flex flex-col items-center gap-2
-                        ${card.responsible === col.id 
-                          ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-lg shadow-indigo-500/5' 
-                          : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20 hover:bg-white/10 hover:text-slate-300'}`}
-                    >
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border
-                        ${card.responsible === col.id ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-white/5 border-white/5'}`}>
-                        {col.name.charAt(0)}
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Users size={18} className="text-indigo-400" /> Responsável Geral
+                  </h4>
+                  {card.responsible && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                      <div className="w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center text-[9px] font-black text-white">
+                        {collaborators.find(c => c.id === card.responsible)?.name.charAt(0)}
                       </div>
-                      {col.name}
-                    </button>
-                  ))}
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase">
+                        {collaborators.find(c => c.id === card.responsible)?.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <select 
+                    value={card.responsible || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      onUpdateCard({ responsible: val });
+                      const name = collaborators.find(c => c.id === val)?.name || 'Ninguém';
+                      onAddAuditEntry(card.id, 'Responsável Geral alterado', `Novo responsável: ${name}`);
+                    }}
+                    className="w-full border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none cursor-pointer hover:border-indigo-500/40 transition-all shadow-xl"
+                    style={{ backgroundColor: '#0f172a' }}
+                  >
+                    <option value="" style={{ backgroundColor: '#0f172a' }} className="text-slate-500">Selecione o responsável pelo cliente...</option>
+                    {collaborators.map(col => (
+                      <option key={col.id} value={col.id} style={{ backgroundColor: '#0f172a' }} className="text-white">
+                        {col.name} • {col.role}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-400">
+                    <PlusCircle size={18} />
+                  </div>
                 </div>
              </div>
 

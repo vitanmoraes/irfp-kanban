@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Layout, ClipboardList, Columns, BarChart3, Brain, Settings } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { PreparationTab } from './components/PreparationTab';
 import { KanbanBoard } from './components/KanbanBoard';
 import { IntelligenceTab } from './components/IntelligenceTab';
 import { SettingsTab } from './components/SettingsTab';
-import type { IRPFAppState } from './types';
 import { useIRPFData } from './hooks/useIRPFData';
 
 function App() {
@@ -98,7 +97,7 @@ function App() {
       <main className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 pointer-events-none" />
         
-        {activeTab === 'dashboard' && <Dashboard data={data} groups={groups} collaborators={collaborators} />}
+        {activeTab === 'dashboard' && <Dashboard data={data} collaborators={collaborators} />}
         {activeTab === 'preparacao' && (
           <PreparationTab 
             data={data} 

@@ -3,14 +3,11 @@ import type { IRPFCard } from '../types';
 import { motion } from 'framer-motion';
 import {
   Clock, CheckSquare, User, Trash2,
-  FileText, Wrench, MessageCircle, DollarSign,
   AlertTriangle, ShieldAlert, MessageSquare
 } from 'lucide-react';
 import {
   COMPLEXITY_COLORS, COMPLEXITY_LABELS,
-  RISK_COLORS, RISK_LABELS,
-  DOC_STATUS_COLORS, DOC_STATUS_LABELS,
-  calculateComplexityScore
+  RISK_COLORS, RISK_LABELS
 } from '../utils/scoreCalculator';
 import { getAlertStatus } from '../utils/communicationManager';
 
@@ -36,25 +33,11 @@ const DEADLINE_LABELS: Record<string, string> = {
   ATRASADO: 'Atrasado',
 };
 
-const TECH_COLORS: Record<string, string> = {
-  NAO_INICIADO: 'text-slate-500',
-  EM_DIGITACAO: 'text-blue-400',
-  CONFERIDO: 'text-purple-400',
-  REVISADO: 'text-emerald-400',
-};
-
-const CLIENT_COLORS: Record<string, string> = {
-  AGUARDANDO: 'text-amber-400',
-  APROVADO: 'text-emerald-400',
-  QUESTIONADO: 'text-orange-400',
-};
-
 // ============================================================
 // Componente
 // ============================================================
 
 export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, collaborators }) => {
-  const complexity = calculateComplexityScore(card.clientProfile);
   const alert = getAlertStatus(card, columnId);
 
   const completedTasks = card.subTasks.filter(t => t.completed).length;
@@ -188,38 +171,6 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
             ))}
           </div>
         )}
-
-        {/* ---- Status Bar (4 dimensões) ---- */}
-        <div className="grid grid-cols-4 gap-1 border-t border-white/5 pt-2">
-          {/* Documental */}
-          <div className="flex flex-col items-center gap-0.5" title={`Documental: ${DOC_STATUS_LABELS[card.statusDoc]}`}>
-            <FileText size={12} className={DOC_STATUS_COLORS[card.statusDoc].split(' ')[0]} />
-            <span className="text-[8px] text-slate-500 leading-none">Doc</span>
-          </div>
-
-          {/* Técnico */}
-          <div className="flex flex-col items-center gap-0.5" title={`Técnico: ${card.statusTech}`}>
-            <Wrench size={12} className={TECH_COLORS[card.statusTech]} />
-            <span className="text-[8px] text-slate-500 leading-none">Téc</span>
-          </div>
-
-          {/* Cliente */}
-          <div className="flex flex-col items-center gap-0.5" title={`Cliente: ${card.statusClient}`}>
-            <MessageCircle size={12} className={CLIENT_COLORS[card.statusClient]} />
-            <span className="text-[8px] text-slate-500 leading-none">Cli</span>
-          </div>
-
-          {/* Financeiro */}
-          <div className="flex flex-col items-center gap-0.5" title={`Financeiro: ${card.statusFinancial}`}>
-            <DollarSign size={12} className={
-              card.statusFinancial === 'PAGO' ? 'text-emerald-400' :
-                card.statusFinancial === 'GERADO' ? 'text-blue-400' :
-                  card.statusFinancial === 'CORTESIA' ? 'text-slate-400' :
-                    'text-slate-600'
-            } />
-            <span className="text-[8px] text-slate-500 leading-none">Fin</span>
-          </div>
-        </div>
 
         {/* ---- Progresso do Checklist ---- */}
         {totalTasks > 0 && (

@@ -1,20 +1,17 @@
 import React from 'react';
 import type { IRPFAppState } from '../types';
 import { 
-  Users, Clock, Keyboard, Send, CheckCircle2, TrendingUp, 
-  AlertCircle, Search, Scale, DollarSign, ShieldAlert,
-  BarChart3, PieChart as PieIcon, Activity, Layout
+  Users, Clock, TrendingUp, DollarSign, ShieldAlert, Activity
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 
 interface Props {
   data: IRPFAppState;
-  groups: any[];
   collaborators: any[];
 }
 
-export const Dashboard: React.FC<Props> = ({ data, groups, collaborators }) => {
+export const Dashboard: React.FC<Props> = ({ data, collaborators }) => {
   const [isMounted, setIsMounted] = React.useState(false);
   
   React.useEffect(() => {
@@ -26,25 +23,11 @@ export const Dashboard: React.FC<Props> = ({ data, groups, collaborators }) => {
   
   // Métricas de Risco e Gargalo
   const criticalRiskCount = allCards.filter(c => c.riskLevel === 'CRITICO').length;
-  const highRiskCount = allCards.filter(c => c.riskLevel === 'ALTO').length;
   const stuckCards = allCards.filter(c => c.daysActive > 7).length;
 
   // Métricas Financeiras
   const totalApproved = allCards.reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
-  const paidHonoraries = allCards.filter(c => c.financial?.status === 'PAGO').reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
   const totalSuggested = allCards.reduce((acc, c) => acc + (c.complexityScore?.total * 25 + 350 || 0), 0);
-
-  // Métricas por Grupo
-  const groupStats = groups.map(group => {
-    const groupCards = allCards.filter(c => c.groupId === group.id);
-    const groupRevenue = groupCards.reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
-    return {
-      name: group.name.replace('Team ', ''),
-      cards: groupCards.length,
-      faturamento: groupRevenue,
-      color: '#6366f1'
-    };
-  });
 
   // Estatísticas de Produtividade por Colaborador
   const productivityStats = collaborators.map(col => {
@@ -101,92 +84,121 @@ export const Dashboard: React.FC<Props> = ({ data, groups, collaborators }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="glass-morphism p-6 rounded-[2rem] border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all"
+              className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 p-5 rounded-3xl border border-white/10 relative overflow-hidden group hover:border-emerald-500/20 hover:-translate-y-1 transition-all duration-300 shadow-xl"
             >
-              <div className={`absolute top-0 right-0 w-20 h-20 ${stat.bg} blur-3xl opacity-20 -mr-6 -mt-6 transition-all group-hover:scale-150`} />
-              <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-2xl ${stat.bg} ${stat.color}`}>
-                  <stat.icon size={20} />
+              <div className={`absolute -right-4 -top-4 w-24 h-24 ${stat.bg} blur-[64px] opacity-20 group-hover:opacity-40 transition-opacity`} />
+              
+              <div className="flex justify-between items-start mb-6">
+                <div className={`w-10 h-10 rounded-full ${stat.bg} ${stat.color} flex items-center justify-center border border-white/5 shadow-inner`}>
+                  <stat.icon size={18} />
                 </div>
-                <div className="text-[10px] font-bold text-emerald-500 flex items-center gap-1">
-                  <TrendingUp size={12} /> +12%
+                <div className="text-[10px] font-bold text-emerald-500/60 bg-emerald-500/5 px-2 py-1 rounded-full border border-emerald-500/10">
+                  +12%
                 </div>
               </div>
-              <div className="text-2xl font-black text-white mb-1 tracking-tight">{stat.value}</div>
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{stat.label}</div>
+
+              <div>
+                <div className="text-3xl font-black text-white leading-none mb-2 tabular-nums tracking-tighter">
+                  {stat.value}
+                </div>
+                <div className="text-[9px] text-slate-500 font-black uppercase tracking-[0.15em] leading-none">
+                  {stat.label}
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Gráfico de Risco */}
-          <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 h-[400px] flex flex-col">
-            <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <ShieldAlert size={20} className="text-red-400" /> Distribuição de Risco
-            </h3>
-            <div className="flex-1">
-              {isMounted && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={riskData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={8}
-                      dataKey="value"
-                    >
-                      {riskData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
-                      itemStyle={{ color: '#fff', fontSize: '12px' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+          {/* Gráfico de Risco - Donut Robusto */}
+          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/80 p-8 rounded-[2rem] border border-white/10 h-[440px] flex flex-col group">
+            <div className="mb-2">
+              <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
+                Distribuição de Risco
+              </h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Análise de Criticidade</p>
+            </div>
+            
+            <div className="flex-1 relative min-h-[200px] flex items-center justify-center">
+              {isMounted && totalClients > 0 && (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={riskData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={70}
+                        outerRadius={90}
+                        paddingAngle={8}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {riskData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Centro do Donut */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div className="text-4xl font-black text-white leading-none">{totalClients}</div>
+                    <div className="text-[9px] text-slate-500 font-bold uppercase tracking-tighter mt-1">Total</div>
+                  </div>
+                </>
+              )}
+              {totalClients === 0 && (
+                <div className="text-slate-600 text-xs font-bold uppercase tracking-widest">Sem dados</div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-4">
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-auto pt-6 border-t border-white/5">
                {riskData.map(r => (
-                 <div key={r.name} className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: r.color }} />
-                    {r.name.toUpperCase()}: {r.value}
+                 <div key={r.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.1)]" style={{ backgroundColor: r.color }} />
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{r.name}</span>
+                    </div>
+                    <span className="text-xs font-mono text-white font-bold">{r.value}</span>
                  </div>
                ))}
             </div>
           </div>
 
-          {/* Funil Operacional */}
-          <div className="lg:col-span-2 glass-morphism p-8 rounded-[2.5rem] border border-white/5">
-            <div className="flex justify-between items-center mb-8">
+          {/* Funil Operacional - Mais Compacto e Visual */}
+          <div className="lg:col-span-2 bg-gradient-to-br from-slate-800/50 to-slate-900/80 p-8 rounded-[2rem] border border-white/10">
+            <div className="flex justify-between items-center mb-1">
                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <BarChart3 size={20} className="text-emerald-400" /> Funil Operacional
+                Fluxo de Produção
               </h3>
-              <Layout size={18} className="text-slate-600" />
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <Activity size={12} className="text-emerald-400" />
+                <span className="text-[10px] font-black text-emerald-400 uppercase">Live</span>
+              </div>
             </div>
-            <div className="space-y-6">
-              {data.columns.map((column, i) => {
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-8">Status por Coluna do Kanban</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+              {data.columns.map((column) => {
                 const count = column.cards.length;
                 const percentage = totalClients > 0 ? (count / totalClients) * 100 : 0;
                 const isGargalo = count > 5;
 
                 return (
-                  <div key={column.id} className="relative">
-                    <div className="flex justify-between text-xs mb-2">
-                      <div className="flex items-center gap-2">
-                         <span className="text-slate-300 font-bold">{column.title}</span>
-                         {isGargalo && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 font-black tracking-tighter">ALTA DEMANDA</span>}
-                      </div>
-                      <span className="text-white font-mono">{count}</span>
+                  <div key={column.id} className="group">
+                    <div className="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-tight">
+                      <span className={count > 0 ? 'text-slate-200' : 'text-slate-600 transition-colors group-hover:text-slate-400'}>
+                        {column.title}
+                      </span>
+                      <span className={count > 0 ? 'text-white' : 'text-slate-700'}>{count}</span>
                     </div>
-                    <div className="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
+                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${percentage}%` }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                        className={`h-full rounded-full ${isGargalo ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gradient-to-r from-emerald-500 to-blue-500'}`}
+                        className={`h-full rounded-full ${isGargalo ? 'bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.4)]' : 'bg-emerald-500'}`}
                       />
                     </div>
                   </div>
@@ -196,139 +208,58 @@ export const Dashboard: React.FC<Props> = ({ data, groups, collaborators }) => {
           </div>
         </div>
 
-        {/* Performance por Time */}
-        <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <BarChart3 size={20} className="text-indigo-400" /> Performance por Time
-            </h3>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
-                <div className="w-2 h-2 rounded bg-indigo-500" /> CLIENTES
-              </div>
-              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
-                <div className="w-2 h-2 rounded bg-emerald-500" /> FATURAMENTO
-              </div>
+        {/* Ranking e Produtividade - Tabela Refinada */}
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/80 p-8 rounded-[2rem] border border-white/10 mb-12">
+          <div className="flex justify-between items-end mb-10">
+            <div>
+              <h3 className="text-xl font-bold text-white mb-1">Ranking de Produtividade</h3>
+              <p className="text-xs text-slate-500">Distribuição de ações técnicas por colaborador</p>
             </div>
-          </div>
-          <div className="h-[300px] w-full">
-            {isMounted && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={groupStats}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 10 }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
-                    itemStyle={{ fontSize: '12px' }}
-                  />
-                  <Bar dataKey="cards" fill="#6366f1" radius={[4, 4, 0, 0]} name="Clientes" />
-                  <Bar dataKey="faturamento" fill="#10b981" radius={[4, 4, 0, 0]} name="Faturamento (R$)" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Alertas Críticos */}
-        <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
-           <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <AlertCircle size={20} className="text-red-400" /> Atenção Prioritária
-              </h3>
-              <button className="text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest">Ver Todos</button>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {allCards.filter(c => c.riskLevel === 'CRITICO' || c.daysActive > 10).slice(0, 6).map((card) => (
-                <div key={card.id} className="p-4 rounded-2xl bg-white/5 border border-red-500/10 hover:border-red-500/30 transition-all flex items-start gap-4">
-                   <div className="p-2 rounded-xl bg-red-500/10 text-red-500">
-                      <ShieldAlert size={16} />
-                   </div>
-                   <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-bold text-white truncate">{card.clientName}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        {card.riskLevel === 'CRITICO' ? 'Risco Crítico' : `Parado há ${card.daysActive} dias`}
-                      </p>
-                   </div>
-                   <button className="text-[10px] font-bold text-emerald-400 hover:underline">Agir</button>
-                </div>
-              ))}
-           </div>
-        </div>
-
-        {/* Ranking de Produtividade por Etapa */}
-        <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Activity size={20} className="text-emerald-400" /> Ranking de Produtividade Individual
-            </h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Total de Ações Técnicas</p>
+            <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500" /> Baixa</span>
+              <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-emerald-500" /> Ativa</span>
+            </div>
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-white/5">
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Colaborador</th>
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Preparação</th>
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Digitação</th>
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Conferência</th>
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Análise</th>
-                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Transmissão</th>
-                  <th className="pb-4 text-[10px] font-bold text-emerald-500 uppercase tracking-widest text-center">Total</th>
+                <tr className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5">
+                  <th className="pb-4">Colaborador</th>
+                  <th className="pb-4 text-center">Prep</th>
+                  <th className="pb-4 text-center">Digit</th>
+                  <th className="pb-4 text-center">Conf</th>
+                  <th className="pb-4 text-center">Anal</th>
+                  <th className="pb-4 text-center">Trans</th>
+                  <th className="pb-4 text-right pr-4">Total Ações</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/[0.03]">
                 {productivityStats.map((col, i) => (
-                  <tr key={i} className="border-b border-white/5 group hover:bg-white/5 transition-all">
+                  <tr key={i} className="group hover:bg-white/[0.02] transition-colors">
                     <td className="py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-[10px] font-black text-slate-400 border border-white/5">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-[11px] font-bold text-slate-400 group-hover:border-emerald-500/30 transition-colors">
                           {col.name.charAt(0)}
                         </div>
-                        <span className="text-sm font-bold text-white">{col.name}</span>
+                        <span className={`text-sm font-bold ${col.total > 0 ? 'text-white' : 'text-slate-600'}`}>{col.name}</span>
                       </div>
                     </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.preparation > 0 ? 'bg-blue-500/10 text-blue-400' : 'text-slate-700'}`}>
-                        {col.preparation}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.typing > 0 ? 'bg-amber-500/10 text-amber-400' : 'text-slate-700'}`}>
-                        {col.typing}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.conference > 0 ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-700'}`}>
-                        {col.conference}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.analysis > 0 ? 'bg-purple-500/10 text-purple-400' : 'text-slate-700'}`}>
-                        {col.analysis}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.transmission > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-700'}`}>
-                        {col.transmission}
-                      </span>
-                    </td>
-                    <td className="py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-sm font-black text-white">{col.total}</span>
-                        <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    {[col.preparation, col.typing, col.conference, col.analysis, col.transmission].map((val, idx) => (
+                      <td key={idx} className="py-4 text-center">
+                        <span className={`text-xs font-mono font-bold ${val > 0 ? 'text-emerald-400' : 'text-slate-800'}`}>
+                          {val}
+                        </span>
+                      </td>
+                    ))}
+                    <td className="py-4 text-right pr-4">
+                      <div className="inline-flex items-center gap-3">
+                        <span className={`text-sm font-black ${col.total > 10 ? 'text-emerald-400' : col.total > 0 ? 'text-white' : 'text-slate-800'}`}>
+                          {col.total}
+                        </span>
+                        <div className="w-12 h-1 bg-white/5 rounded-full overflow-hidden">
                           <div 
-                            className="h-full bg-emerald-500" 
+                            className="h-full bg-emerald-500/50" 
                             style={{ width: `${(col.total / (Math.max(...productivityStats.map(s => s.total)) || 1)) * 100}%` }} 
                           />
                         </div>
