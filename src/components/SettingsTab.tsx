@@ -1,10 +1,33 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Users, CreditCard, Shield, Plus, Edit2, Trash2 } from 'lucide-react';
-import { COLLABORATORS } from '../data/collaborators';
+import { Settings, Users, CreditCard, Shield, Plus, Edit2, Trash2, X } from 'lucide-react';
 
-export const SettingsTab: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<'colaboradores' | 'tabelas' | 'parametros'>('colaboradores');
+interface SettingsProps {
+  groups: any[];
+  collaborators: any[];
+  onAddGroup: (group: any) => void;
+  onUpdateGroup: (id: string, updates: any) => void;
+  onDeleteGroup: (id: string) => void;
+}
+
+export const SettingsTab: React.FC<SettingsProps> = ({ 
+  groups, collaborators, onAddGroup, onUpdateGroup, onDeleteGroup 
+}) => {
+  const [activeSection, setActiveSection] = useState<'colaboradores' | 'grupos' | 'tabelas' | 'parametros'>('colaboradores');
+  const [isAddingGroup, setIsAddingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const handleAddGroup = () => {
+    if (!newGroupName.trim()) return;
+    const newGroup = {
+      id: newGroupName.toLowerCase().replace(/\s+/g, '-'),
+      name: newGroupName,
+      description: `Núcleo de execução liderado por ${newGroupName.split(' ')[1] || newGroupName}`
+    };
+    onAddGroup(newGroup);
+    setNewGroupName('');
+    setIsAddingGroup(false);
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0f172a] text-slate-200 overflow-hidden">
@@ -31,6 +54,13 @@ export const SettingsTab: React.FC = () => {
           >
             <Users size={18} />
             Colaboradores
+          </button>
+          <button
+            onClick={() => setActiveSection('grupos')}
+            className={`flex items-center gap-3 p-4 rounded-2xl transition-all font-medium text-sm ${activeSection === 'grupos' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+          >
+            <Settings size={18} />
+            Grupos de Execução
           </button>
           <button
             onClick={() => setActiveSection('tabelas')}
@@ -64,7 +94,7 @@ export const SettingsTab: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
-                  {COLLABORATORS.map(colab => (
+                  {collaborators.map(colab => (
                     <div key={colab.id} className="glass-morphism p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-lg border border-indigo-500/30">
@@ -80,6 +110,65 @@ export const SettingsTab: React.FC = () => {
                           <Edit2 size={16} />
                         </button>
                         <button className="p-2 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {activeSection === 'grupos' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Settings className="text-indigo-400" size={20} />
+                    Grupos de Execução
+                  </h3>
+                  {!isAddingGroup ? (
+                    <button 
+                      onClick={() => setIsAddingGroup(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-indigo-500/20"
+                    >
+                      <Plus size={16} /> Novo Grupo
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="Nome do Time..."
+                        value={newGroupName}
+                        onChange={(e) => setNewGroupName(e.target.value)}
+                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      />
+                      <button onClick={handleAddGroup} className="bg-emerald-600 p-2 rounded-xl text-white hover:bg-emerald-500 transition-all">
+                        <Plus size={16} />
+                      </button>
+                      <button onClick={() => setIsAddingGroup(false)} className="bg-white/5 p-2 rounded-xl text-slate-400 hover:bg-white/10 transition-all">
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {groups.map(group => (
+                    <div key={group.id} className="glass-morphism p-5 rounded-2xl border border-white/5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                          <Settings size={20} />
+                        </div>
+                        <div>
+                          <h4 className="text-white font-bold text-base">{group.name}</h4>
+                          <p className="text-sm text-slate-400">{group.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={() => onDeleteGroup(group.id)}
+                          className="p-2 hover:bg-red-500/20 rounded-lg text-slate-400 hover:text-red-400 transition-all"
+                        >
                           <Trash2 size={16} />
                         </button>
                       </div>

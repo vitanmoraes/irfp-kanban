@@ -10,7 +10,9 @@ import { useIRPFData } from './hooks/useIRPFData';
 
 function App() {
   const { 
-    data, loading, error, addCard, updateCard, moveCard, deleteCard, addCommunication, addAuditEntry 
+    data, loading, error, groups, collaborators,
+    addCard, updateCard, moveCard, deleteCard, updateSubTask,
+    addCommunication, addAuditEntry, addGroup, updateGroup, deleteGroup 
   } = useIRPFData();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'preparacao' | 'kanban' | 'inteligencia' | 'configuracoes'>('dashboard');
 
@@ -95,11 +97,13 @@ function App() {
       <main className="flex-1 flex flex-col overflow-hidden relative z-10">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 via-transparent to-purple-500/5 pointer-events-none" />
         
-        {activeTab === 'dashboard' && <Dashboard data={data} />}
+        {activeTab === 'dashboard' && <Dashboard data={data} groups={groups} collaborators={collaborators} />}
         {activeTab === 'preparacao' && (
           <PreparationTab 
             data={data} 
             onAddCard={addCard} 
+            onDeleteCard={deleteCard}
+            onMoveCard={moveCard}
           />
         )}
         {activeTab === 'kanban' && (
@@ -110,10 +114,21 @@ function App() {
             onDeleteCard={deleteCard}
             onAddCommunication={addCommunication}
             onAddAuditEntry={addAuditEntry}
+            onToggleTask={updateSubTask}
+            groups={groups}
+            collaborators={collaborators}
           />
         )}
         {activeTab === 'inteligencia' && <IntelligenceTab />}
-        {activeTab === 'configuracoes' && <SettingsTab />}
+        {activeTab === 'configuracoes' && (
+          <SettingsTab 
+            groups={groups} 
+            collaborators={collaborators}
+            onAddGroup={addGroup} 
+            onUpdateGroup={updateGroup} 
+            onDeleteGroup={deleteGroup} 
+          />
+        )}
       </main>
     </div>
   );

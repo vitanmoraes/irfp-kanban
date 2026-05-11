@@ -8,9 +8,10 @@ interface Props {
   onCardClick: (card: IRPFCard) => void;
   onCardDrop: (cardId: string) => void;
   onDeleteCard: (cardId: string) => void;
+  collaborators: any[];
 }
 
-export const Column: React.FC<Props> = ({ column, onCardClick, onCardDrop, onDeleteCard }) => {
+export const Column: React.FC<Props> = ({ column, onCardClick, onCardDrop, onDeleteCard, collaborators }) => {
   // @ts-ignore
   const Icon = Icons[column.icon] || Icons.HelpCircle;
 
@@ -55,6 +56,7 @@ export const Column: React.FC<Props> = ({ column, onCardClick, onCardDrop, onDel
               key={card.id} 
               card={card} 
               columnId={column.id}
+              collaborators={collaborators}
               onClick={() => onCardClick(card)} 
               onDelete={() => onDeleteCard(card.id)}
             />

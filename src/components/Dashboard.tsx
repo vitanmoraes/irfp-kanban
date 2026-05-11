@@ -6,14 +6,21 @@ import {
   BarChart3, PieChart as PieIcon, Activity, Layout
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { COLLABORATORS } from '../data/collaborators';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 interface Props {
   data: IRPFAppState;
+  groups: any[];
+  collaborators: any[];
 }
 
-export const Dashboard: React.FC<Props> = ({ data }) => {
+export const Dashboard: React.FC<Props> = ({ data, groups, collaborators }) => {
+  const [isMounted, setIsMounted] = React.useState(false);
+  
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const allCards = data.columns.flatMap(col => col.cards);
   const totalClients = allCards.length;
   
@@ -27,6 +34,34 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const paidHonoraries = allCards.filter(c => c.financial?.status === 'PAGO').reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
   const totalSuggested = allCards.reduce((acc, c) => acc + (c.complexityScore?.total * 25 + 350 || 0), 0);
 
+  // Métricas por Grupo
+  const groupStats = groups.map(group => {
+    const groupCards = allCards.filter(c => c.groupId === group.id);
+    const groupRevenue = groupCards.reduce((acc, c) => acc + (c.financial?.approvedValue || 0), 0);
+    return {
+      name: group.name.replace('Team ', ''),
+      cards: groupCards.length,
+      faturamento: groupRevenue,
+      color: '#6366f1'
+    };
+  });
+
+  // Estatísticas de Produtividade por Colaborador
+  const productivityStats = collaborators.map(col => {
+    const stats = {
+      name: col.name,
+      preparation: allCards.filter(c => c.executors?.preparation === col.id).length,
+      typing: allCards.filter(c => c.executors?.typing === col.id).length,
+      conference: allCards.filter(c => c.executors?.conference === col.id).length,
+      analysis: allCards.filter(c => c.executors?.analysis === col.id).length,
+      transmission: allCards.filter(c => c.executors?.transmission === col.id).length,
+    };
+    return {
+      ...stats,
+      total: stats.preparation + stats.typing + stats.conference + stats.analysis + stats.transmission
+    };
+  }).sort((a, b) => b.total - a.total);
+
   const stats = [
     { label: 'Total de Clientes', value: totalClients, icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
     { label: 'Risco Crítico', value: criticalRiskCount, icon: ShieldAlert, color: 'text-red-400', bg: 'bg-red-500/10' },
@@ -34,6 +69,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     { label: 'Honorários Totais', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalApproved), icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
     { label: 'Faturamento Sugerido', value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(totalSuggested), icon: TrendingUp, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
   ];
+
 
   // Dados para os Gráficos
   const riskData = [
@@ -88,27 +124,29 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
               <ShieldAlert size={20} className="text-red-400" /> Distribuição de Risco
             </h3>
             <div className="flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={riskData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={8}
-                    dataKey="value"
-                  >
-                    {riskData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
-                    itemStyle={{ color: '#fff', fontSize: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {isMounted && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={riskData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={8}
+                      dataKey="value"
+                    >
+                      {riskData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                      itemStyle={{ color: '#fff', fontSize: '12px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
                {riskData.map(r => (
@@ -158,6 +196,49 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
           </div>
         </div>
 
+        {/* Performance por Time */}
+        <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <BarChart3 size={20} className="text-indigo-400" /> Performance por Time
+            </h3>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
+                <div className="w-2 h-2 rounded bg-indigo-500" /> CLIENTES
+              </div>
+              <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold">
+                <div className="w-2 h-2 rounded bg-emerald-500" /> FATURAMENTO
+              </div>
+            </div>
+          </div>
+          <div className="h-[300px] w-full">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={groupStats}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#64748b', fontSize: 10 }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                    itemStyle={{ fontSize: '12px' }}
+                  />
+                  <Bar dataKey="cards" fill="#6366f1" radius={[4, 4, 0, 0]} name="Clientes" />
+                  <Bar dataKey="faturamento" fill="#10b981" radius={[4, 4, 0, 0]} name="Faturamento (R$)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
         {/* Alertas Críticos */}
         <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
            <div className="flex items-center justify-between mb-8">
@@ -182,6 +263,82 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
               ))}
            </div>
+        </div>
+
+        {/* Ranking de Produtividade por Etapa */}
+        <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5 mb-12">
+          <div className="flex justify-between items-center mb-8">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity size={20} className="text-emerald-400" /> Ranking de Produtividade Individual
+            </h3>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Total de Ações Técnicas</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/5">
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Colaborador</th>
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Preparação</th>
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Digitação</th>
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Conferência</th>
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Análise</th>
+                  <th className="pb-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Transmissão</th>
+                  <th className="pb-4 text-[10px] font-bold text-emerald-500 uppercase tracking-widest text-center">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productivityStats.map((col, i) => (
+                  <tr key={i} className="border-b border-white/5 group hover:bg-white/5 transition-all">
+                    <td className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-[10px] font-black text-slate-400 border border-white/5">
+                          {col.name.charAt(0)}
+                        </div>
+                        <span className="text-sm font-bold text-white">{col.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.preparation > 0 ? 'bg-blue-500/10 text-blue-400' : 'text-slate-700'}`}>
+                        {col.preparation}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.typing > 0 ? 'bg-amber-500/10 text-amber-400' : 'text-slate-700'}`}>
+                        {col.typing}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.conference > 0 ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-700'}`}>
+                        {col.conference}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.analysis > 0 ? 'bg-purple-500/10 text-purple-400' : 'text-slate-700'}`}>
+                        {col.analysis}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${col.transmission > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-700'}`}>
+                        {col.transmission}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-sm font-black text-white">{col.total}</span>
+                        <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500" 
+                            style={{ width: `${(col.total / (Math.max(...productivityStats.map(s => s.total)) || 1)) * 100}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

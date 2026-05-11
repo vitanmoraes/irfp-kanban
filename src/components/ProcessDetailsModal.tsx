@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { IRPFCard, BillingModal, SubTask, ExtraService, CommunicationEntry, GateItem } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  X, CheckCircle2, Info, FileText, MessageCircle, User, 
+  X, CheckCircle2, Info, FileText, MessageCircle, User, Users,
   Shield, Target, Clock, Layout, ListChecks, Keyboard, 
   Search, Scale, CreditCard, Send, PlusCircle, History,
   AlertTriangle, ShieldAlert, DollarSign
 } from 'lucide-react';
 import { IRPF_PROCESS } from '../data/irpfProcess';
-import { COLLABORATORS } from '../data/collaborators';
+import { getGroupName } from '../data/groups';
 import { 
   COMPLEXITY_COLORS, COMPLEXITY_LABELS, 
   RISK_COLORS, RISK_LABELS,
@@ -27,14 +28,100 @@ interface Props {
   onUpdateCard: (updates: Partial<IRPFCard>) => void;
   onAddCommunication: (cardId: string, entry: any) => void;
   onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
+  groups: any[];
+  collaborators: any[];
 }
 
 type TabId = 'resumo' | 'documentos' | 'checklist' | 'digitacao' | 'conferencia' | 'analise' | 'cliente' | 'financeiro' | 'transmissao' | 'extras' | 'auditoria';
 
-export const ProcessDetailsModal: React.FC<Props> = ({ 
-  card, columnId, isOpen, onClose, onToggleTask, onUpdateCard, onAddCommunication, onAddAuditEntry 
+const ExecutorSelector = ({ 
+  card, stage, label, onUpdateCard, onAddAuditEntry, collaborators
+}: { 
+  card: IRPFCard,
+  stage: keyof NonNullable<IRPFCard['executors']>, 
+  label: string,
+  onUpdateCard: (updates: Partial<IRPFCard>) => void,
+  onAddAuditEntry: (cardId: string, action: string, details?: string) => void,
+  collaborators: any[]
 }) => {
+  const currentExecutorId = card.executors?.[stage];
+  const currentExecutor = collaborators.find(c => c.id === currentExecutorId);
+  
+  return (
+    <div className="flex items-center gap-4 bg-white/5 p-4 rounded-3xl border border-white/10 mb-8 group hover:border-indigo-500/30 transition-all">
+      <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition-transform">
+        <User size={20} />
+      </div>
+      <div className="flex-1">
+        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">{label}</p>
+        <div className="relative">
+          <select 
+            value={currentExecutorId || ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              const newExecutors = { ...(card.executors || {}), [stage]: val };
+              onUpdateCard({ executors: newExecutors });
+              const name = collaborators.find(c => c.id === val)?.name || 'Ninguém';
+              onAddAuditEntry(card.id, `Executor atribuído: ${label}`, `Executor: ${name}`);
+            }}
+            style={{
+              backgroundColor: '#1e293b',
+              color: 'white',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '12px 16px',
+              borderRadius: '16px',
+              width: '100%',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="" style={{ backgroundColor: '#0f172a', color: '#64748b' }}>Selecionar executor responsável...</option>
+            {collaborators.map(c => (
+              <option key={c.id} value={c.id} style={{ backgroundColor: '#0f172a', color: 'white' }}>
+                {c.name} ({c.role})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      {currentExecutor && (
+        <div className="flex -space-x-2">
+          <div className="w-8 h-8 rounded-full bg-indigo-500 border-2 border-[#0f172a] flex items-center justify-center text-[10px] font-black text-white shadow-lg">
+            {currentExecutor.name.charAt(0)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const ProcessDetailsModal: React.FC<Props> = ({ 
+  card, columnId, isOpen, onClose, onToggleTask, onUpdateCard, onAddCommunication, onAddAuditEntry, groups, collaborators 
+}) => {
+
   const [activeTab, setActiveTab] = useState<TabId>('resumo');
+
+  
+  // Body & HTML Scroll Lock Avançado
+  useEffect(() => {
+    if (isOpen) {
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollBarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.paddingRight = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.paddingRight = '';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -84,16 +171,83 @@ export const ProcessDetailsModal: React.FC<Props> = ({
               </div>
             </div>
 
+             {/* Responsável Geral */}
+             <div className="glass-morphism p-8 rounded-3xl border border-white/5">
+                <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                  <Users size={18} className="text-emerald-400" /> Responsável Geral pelo Cliente
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {collaborators.map((col) => (
+                    <button
+                      key={col.id}
+                      onClick={() => {
+                        onUpdateCard({ responsible: col.id });
+                        onAddAuditEntry(card.id, 'Responsável Geral alterado', `Novo responsável: ${col.name}`);
+                      }}
+                      className={`p-4 rounded-2xl border text-[10px] font-bold transition-all text-center flex flex-col items-center gap-2
+                        ${card.responsible === col.id 
+                          ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-lg shadow-indigo-500/5' 
+                          : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20 hover:bg-white/10 hover:text-slate-300'}`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border
+                        ${card.responsible === col.id ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-white/5 border-white/5'}`}>
+                        {col.name.charAt(0)}
+                      </div>
+                      {col.name}
+                    </button>
+                  ))}
+                </div>
+             </div>
+
+            <div className="glass-morphism p-8 rounded-3xl border border-white/5">
+               <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
+                 <Layout size={18} className="text-emerald-400" /> Grupo de Execução
+               </h4>
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                 {groups.map((group) => (
+                   <button
+                     key={group.id}
+                     onClick={() => onUpdateCard({ groupId: group.id })}
+                     className={`p-4 rounded-2xl border text-[10px] font-bold transition-all text-center flex flex-col items-center gap-2
+                       ${card.groupId === group.id 
+                         ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-lg shadow-emerald-500/5' 
+                         : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20 hover:bg-white/10 hover:text-slate-300'}`}
+                   >
+                     <div className={`w-2 h-2 rounded-full ${card.groupId === group.id ? 'bg-emerald-400 animate-pulse' : 'bg-slate-700'}`} />
+                     {group.name}
+                   </button>
+                 ))}
+               </div>
+            </div>
+
             <div className="glass-morphism p-8 rounded-3xl border border-white/5">
                <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
                  <Target size={18} className="text-emerald-400" /> Detalhes do Perfil Fiscal
                </h4>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                 {Object.entries(card.clientProfile).map(([key, value]) => (
-                   <div key={key} className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${value ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/5 text-slate-600'}`}>
-                     {key.replace('has', '').replace(/([A-Z])/g, ' $1').trim()}
-                   </div>
-                 ))}
+                 {Object.entries(card.clientProfile).map(([key, value]) => {
+                    const PROFILE_LABELS: Record<string, string> = {
+                      hasDependents: 'Possui Dependentes',
+                      hasMultiplePayingSources: 'Múltiplas Fontes Pagadoras',
+                      hasProlabore: 'Pró-Labore',
+                      hasLivroCaixa: 'Livro Caixa',
+                      hasVariableIncome: 'Renda Variável (Bolsa)',
+                      hasOverseasAssets: 'Ativos no Exterior',
+                      hasRealEstate: 'Bens Imóveis',
+                      hasDonations: 'Doações Efetuadas',
+                      hasRuralActivity: 'Atividade Rural',
+                      hasCompanyParticipation: 'Participação Societária',
+                      hasCapitalGain: 'Ganho de Capital',
+                      hasJCP: 'Juros sobre Capital Próprio',
+                      hasFinancing: 'Financiamentos Ativos',
+                      isHighNetWorth: 'Alto Patrimônio'
+                    };
+                    return (
+                      <div key={key} className={`p-3 rounded-xl border text-[10px] font-bold transition-all ${value ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-white/5 border-white/5 text-slate-600'}`}>
+                        {PROFILE_LABELS[key] || key}
+                      </div>
+                    );
+                 })}
                </div>
             </div>
           </div>
@@ -102,6 +256,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
       case 'documentos':
         return (
           <div className="space-y-6">
+            <ExecutorSelector card={card} stage="preparation" label="Responsável pela Preparação / Checklist" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Checklist de Documentação</h3>
               <div className={`px-4 py-1.5 rounded-full text-[10px] font-bold ${DOC_STATUS_COLORS[card.statusDoc]}`}>
@@ -140,6 +295,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
         const { pct: pctDig } = gateProgress(card.gatesDigitacao);
         return (
           <div className="space-y-8">
+            <ExecutorSelector card={card} stage="typing" label="Responsável pelos Lançamentos (Digitação)" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
             <div className="p-6 rounded-3xl bg-amber-500/5 border border-amber-500/20 flex flex-col gap-4">
                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-3">
@@ -181,9 +337,21 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </div>
         );
 
+      case 'conferencia':
+        return (
+          <div className="space-y-8">
+            <ExecutorSelector card={card} stage="conference" label="Responsável pela Conferência de Documentos" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
+            <div className="glass-morphism p-10 rounded-[2.5rem] border border-dashed border-white/10 text-center">
+              <CheckCircle2 size={48} className="text-slate-700 mx-auto mb-4" />
+              <p className="text-slate-500 font-medium">Módulo de conferência detalhada em integração.</p>
+            </div>
+          </div>
+        );
+
       case 'analise':
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <ExecutorSelector card={card} stage="analysis" label="Responsável pela Análise Fiscal Estruturada" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="glass-morphism p-8 rounded-[2.5rem] border border-white/5">
                 <h4 className="text-sm font-bold text-white mb-6 flex items-center gap-2">
@@ -458,6 +626,52 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </div>
         );
 
+      case 'transmissao':
+        const { pct: pctTrans } = gateProgress(card.gatesTransmissao);
+        return (
+          <div className="space-y-8">
+            <ExecutorSelector card={card} stage="transmission" label="Responsável pela Transmissão da Declaração" onUpdateCard={onUpdateCard} onAddAuditEntry={onAddAuditEntry} collaborators={collaborators} />
+            <div className="p-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/20 flex flex-col gap-4">
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                   <Send className="text-emerald-500" size={24} />
+                   <div>
+                     <h4 className="text-white font-bold">Gate de Transmissão</h4>
+                     <p className="text-xs text-slate-400">Verificações finais e envio à RFB</p>
+                   </div>
+                 </div>
+                 <div className="text-right">
+                    <span className="text-2xl font-bold text-white">{pctTrans}%</span>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase">Concluído</p>
+                 </div>
+               </div>
+               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${pctTrans}%` }} />
+               </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {card.gatesTransmissao.map((gate) => (
+                <div key={gate.id} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                  <button 
+                    onClick={() => {
+                      const newGates = card.gatesTransmissao.map(g => g.id === gate.id ? { ...g, completed: !g.completed } : g);
+                      onUpdateCard({ gatesTransmissao: newGates });
+                    }}
+                    className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${gate.completed ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'}`}
+                  >
+                    {gate.completed && <CheckCircle2 size={14} className="text-white" />}
+                  </button>
+                  <div className="flex-1">
+                    <p className={`text-sm font-semibold ${gate.completed ? 'text-slate-500 line-through' : 'text-slate-200'}`}>{gate.label}</p>
+                    {gate.required && <span className="text-[8px] text-red-400 font-bold uppercase">Obrigatório</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
       case 'auditoria':
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
@@ -490,17 +704,37 @@ export const ProcessDetailsModal: React.FC<Props> = ({
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
+      <div 
+        className="bg-black/80 backdrop-blur-md overflow-hidden"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100dvh',
+          width: '100vw'
+        }}
+      >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          initial={{ opacity: 0, scale: 0.98, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-[#0f172a] border border-white/10 w-full max-w-7xl h-[90vh] rounded-[3rem] overflow-hidden flex flex-col shadow-2xl"
+          exit={{ opacity: 0, scale: 0.98, y: 20 }}
+          className="bg-[#0f172a] border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col shadow-2xl relative"
+          style={{
+            height: 'calc(100dvh - 32px)',
+            width: 'calc(100vw - 32px)',
+            maxWidth: '1280px' // Equivalente a max-w-7xl
+          }}
         >
           {/* Header */}
-          <header className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/50">
+          <header className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/50 shrink-0">
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
                 <Target size={32} />
@@ -525,7 +759,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </header>
 
           {/* Navegação por Abas */}
-          <nav className="flex overflow-x-scroll px-8 py-2 border-b border-white/5 bg-slate-900/30 custom-scrollbar shrink-0">
+          <nav className="flex overflow-x-auto px-8 py-2 border-b border-white/5 bg-slate-900/30 custom-scrollbar shrink-0">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -546,38 +780,67 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </nav>
 
           {/* Área de Conteúdo */}
-          <div className="flex-1 overflow-y-scroll overflow-x-scroll custom-scrollbar p-10 bg-slate-900/10 relative">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-10 bg-slate-900/10 relative">
              <div className="max-w-5xl mx-auto">
                {renderTabContent()}
              </div>
           </div>
 
           {/* Rodapé */}
-          <footer className="p-8 border-t border-white/5 bg-slate-900/80 flex justify-between items-center shrink-0">
-             <div className="flex items-center gap-8">
+          <footer className="px-8 py-6 border-t border-white/5 bg-slate-900/80 flex flex-wrap justify-between items-center gap-6 shrink-0">
+             <div className="flex flex-wrap items-center gap-8">
+                {/* Grupo */}
                 <div className="flex flex-col">
-                   <span className="text-[10px] text-slate-500 font-bold uppercase mb-1">Status Técnico</span>
+                   <span className="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Grupo de Execução</span>
+                   <div className="flex items-center gap-2">
+                      <Layout size={14} className="text-emerald-400" />
+                      <span className="text-sm font-bold text-white">
+                        {groups.find(g => g.id === card.groupId)?.name || 'Sem Grupo'}
+                      </span>
+                   </div>
+                </div>
+
+                {/* Status Técnico */}
+                <div className="flex flex-col border-l border-white/10 pl-8">
+                   <span className="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Status</span>
                    <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                       <span className="text-sm font-bold text-white">{card.statusTech}</span>
                    </div>
                 </div>
-                <div className="flex flex-col">
-                   <span className="text-[10px] text-slate-500 font-bold uppercase mb-1">Responsável</span>
-                   <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-[10px] font-bold">
-                        {COLLABORATORS.find(c => c.id === card.responsible)?.name?.charAt(0) || 'U'}
-                      </div>
-                      <span className="text-sm font-bold text-slate-300">
-                        {COLLABORATORS.find(c => c.id === card.responsible)?.name || 'Sem responsável'}
-                      </span>
+
+                {/* Line-up de Executores */}
+                <div className="flex flex-col border-l border-white/10 pl-8">
+                   <span className="text-[9px] text-slate-500 font-bold uppercase mb-2 tracking-widest text-center">Executores por Etapa Técnica</span>
+                   <div className="flex items-center gap-8">
+                      {[
+                        { id: card.executors?.preparation, label: 'Preparação' },
+                        { id: card.executors?.typing, label: 'Digitação' },
+                        { id: card.executors?.conference, label: 'Conferência' },
+                        { id: card.executors?.analysis, label: 'Análise' },
+                        { id: card.executors?.transmission, label: 'Transmissão' }
+                      ].map((ex, i) => {
+                        const collaborator = collaborators.find(c => c.id === ex.id);
+                        return (
+                          <div key={i} className="flex flex-col items-center gap-1.5 min-w-[70px]">
+                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black border transition-all
+                               ${collaborator ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400' : 'bg-white/5 border-white/5 text-slate-700'}`}>
+                                {collaborator ? collaborator.name.charAt(0) : '?'}
+                             </div>
+                             <div className="flex flex-col items-center">
+                               <span className="text-[7px] font-black text-slate-500 uppercase tracking-tighter leading-none mb-1 text-center">{ex.label}</span>
+                               <span className="text-[9px] font-bold text-slate-300 whitespace-nowrap leading-none">
+                                 {collaborator ? collaborator.name.split(' ')[0] : '---'}
+                               </span>
+                             </div>
+                          </div>
+                        );
+                      })}
                    </div>
                 </div>
              </div>
+
              <div className="flex items-center gap-4">
-                <button className="px-8 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all font-bold text-sm">
-                  Salvar Rascunho
-                </button>
                 <button 
                   onClick={onClose}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-10 py-4 rounded-2xl text-sm font-bold transition-all shadow-lg shadow-emerald-500/20"
@@ -588,6 +851,7 @@ export const ProcessDetailsModal: React.FC<Props> = ({
           </footer>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

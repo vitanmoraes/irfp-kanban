@@ -12,9 +12,11 @@ import { INITIAL_GATES_DIGITACAO, INITIAL_GATES_TRANSMISSAO } from '../data/irpf
 interface Props {
   data: IRPFAppState;
   onAddCard: (card: IRPFCard) => void;
+  onDeleteCard: (cardId: string) => void;
+  onMoveCard?: (cardId: string, targetColumnId: string) => void;
 }
 
-export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
+export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard, onMoveCard }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCard, setSelectedCard] = useState<IRPFCard | null>(null);
   const [selectedForMessage, setSelectedForMessage] = useState<Set<string>>(new Set());
@@ -325,26 +327,16 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard }) => {
 
   const promoteToKanban = (card: IRPFCard) => {
     if (!window.confirm(`Mover ${card.clientName} para Aguardando Documentação?`)) return;
-    setData({
-      ...data,
-      columns: data.columns.map(col => {
-        if (col.id === 'preparacao') return { ...col, cards: col.cards.filter(c => c.id !== card.id) };
-        if (col.id === 'aguardando')  return { ...col, cards: [card, ...col.cards] };
-        return col;
-      })
-    });
+    if (onMoveCard) {
+      onMoveCard(card.id, 'aguardando');
+    }
     setSelectedCard(null);
     setMessagePreview(null);
   };
 
   const deleteFromPrep = (cardId: string) => {
     if (!window.confirm('Excluir este cliente da preparação?')) return;
-    setData({
-      ...data,
-      columns: data.columns.map(col => 
-        col.id === 'preparacao' ? { ...col, cards: col.cards.filter(c => c.id !== cardId) } : col
-      )
-    });
+    onDeleteCard(cardId);
     setSelectedCard(null);
   };
 

@@ -187,6 +187,22 @@ export interface Group {
 // IRPF Card — Entidade Central
 // ============================================================
 
+export interface StageExecutors {
+  preparation?: string;
+  typing?: string;
+  conference?: string;
+  analysis?: string;
+  transmission?: string;
+}
+
+export interface StageExecutors {
+  preparation?: string;
+  typing?: string;
+  conference?: string;
+  analysis?: string;
+  transmission?: string;
+}
+
 export interface IRPFCard {
   id: string;
 
@@ -254,6 +270,11 @@ export interface IRPFCard {
   // ---- NOVO: Serviços Extras ----
   extraServices: ExtraService[];
 
+  // ---- NOVO: Segmentação de Equipes ----
+  groupId?: string;
+
+  executors?: StageExecutors;
+  
   // Legado / compatibilidade
   docStatus?: 'PENDENTE' | 'COMPLETO';
   notes?: string;

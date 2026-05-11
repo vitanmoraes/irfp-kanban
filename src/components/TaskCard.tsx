@@ -6,7 +6,6 @@ import {
   FileText, Wrench, MessageCircle, DollarSign,
   AlertTriangle, ShieldAlert, MessageSquare
 } from 'lucide-react';
-import { COLLABORATORS } from '../data/collaborators';
 import {
   COMPLEXITY_COLORS, COMPLEXITY_LABELS,
   RISK_COLORS, RISK_LABELS,
@@ -20,6 +19,7 @@ interface Props {
   columnId: string;
   onClick?: () => void;
   onDelete?: () => void;
+  collaborators: any[];
 }
 
 // ---- helpers de cor por status ----
@@ -53,7 +53,7 @@ const CLIENT_COLORS: Record<string, string> = {
 // Componente
 // ============================================================
 
-export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete }) => {
+export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, collaborators }) => {
   const complexity = calculateComplexityScore(card.clientProfile);
   const alert = getAlertStatus(card, columnId);
 
@@ -61,8 +61,24 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete })
   const totalTasks     = card.subTasks.length;
   const progress       = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
-  const stageResponsibleId = card.stageResponsibilities?.[columnId];
-  const stageResponsible   = COLLABORATORS.find(c => c.id === stageResponsibleId);
+  // Mapeamento dinâmico do executor baseado na coluna atual do Kanban
+  const stageToExecutorKey: Record<string, keyof NonNullable<IRPFCard['executors']>> = {
+    '1': 'preparation',
+    '2': 'preparation',
+    '3': 'preparation',
+    '4': 'typing',
+    '5': 'conference',
+    '6': 'analysis',
+    '9': 'transmission'
+  };
+
+  const executorKey = stageToExecutorKey[columnId];
+  // Prioridade: Executor da etapa técnica -> Fallback: Responsável Geral
+  const stageResponsibleId = (executorKey && card.executors && card.executors[executorKey]) 
+    ? card.executors[executorKey] 
+    : card.responsible;
+    
+  const stageResponsible = collaborators.find(c => c.id === stageResponsibleId);
 
   const isStuck    = card.daysActive > 7;
   const isCritical = card.riskLevel === 'CRITICO' || card.riskLevel === 'ALTO';

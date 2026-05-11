@@ -3,7 +3,6 @@ import { Column } from './Column';
 import { Search, Filter, AlertTriangle, Users, Clock, Keyboard, Send } from 'lucide-react';
 import { ProcessDetailsModal } from './ProcessDetailsModal';
 import type { IRPFCard, SubTask, IRPFAppState } from '../types';
-import { COLLABORATORS } from '../data/collaborators';
 
 interface Props {
   data: IRPFAppState;
@@ -11,14 +10,17 @@ interface Props {
   onUpdateCard: (cardId: string, updates: Partial<IRPFCard>) => void;
   onDeleteCard: (cardId: string) => void;
   onAddCommunication: (cardId: string, entry: any) => void;
-  onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
+  onToggleTask: (taskId: string, completed: boolean) => void;
+  groups: any[];
+  collaborators: any[];
 }
 
 export const KanbanBoard: React.FC<Props> = ({ 
-  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry 
+  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry, onToggleTask, groups, collaborators
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterRisk, setFilterRisk] = useState<string>('all');
   const [filterComplexity, setFilterComplexity] = useState<string>('all');
   const [selectedCard, setSelectedCard] = useState<IRPFCard | null>(null);
@@ -33,9 +35,6 @@ export const KanbanBoard: React.FC<Props> = ({
 
   const updateCardDetails = (cardId: string, updates: Partial<IRPFCard>) => {
     onUpdateCard(cardId, updates);
-    if (selectedCard?.id === cardId) {
-      setSelectedCard(prev => prev ? { ...prev, ...updates } : null);
-    }
   };
 
   const deleteCard = (cardId: string) => {
@@ -48,10 +47,11 @@ export const KanbanBoard: React.FC<Props> = ({
     cards: col.cards.filter(card => {
       const matchSearch = card.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || card.cpf.includes(searchTerm);
       const matchResp = filterResponsible === 'all' || card.responsible === filterResponsible;
+      const matchGroup = filterGroup === 'all' || card.groupId === filterGroup;
       const matchRisk = filterRisk === 'all' || card.riskLevel === filterRisk;
       const matchComp = filterComplexity === 'all' || card.complexityScore.classification === filterComplexity;
       
-      return matchSearch && matchResp && matchRisk && matchComp;
+      return matchSearch && matchResp && matchGroup && matchRisk && matchComp;
     })
   }));
 
@@ -80,7 +80,16 @@ export const KanbanBoard: React.FC<Props> = ({
               className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-300 focus:outline-none"
             >
               <option value="all">Todos Responsáveis</option>
-              {COLLABORATORS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {collaborators.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+
+            <select 
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-300 focus:outline-none"
+            >
+              <option value="all">Todos os Grupos</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
 
             <select 
@@ -142,6 +151,7 @@ export const KanbanBoard: React.FC<Props> = ({
               onUpdateCard={updateCardDetails}
               onAddCommunication={onAddCommunication}
               onAddAuditEntry={onAddAuditEntry}
+              collaborators={collaborators}
             />
           ))}
         </div>
@@ -149,19 +159,21 @@ export const KanbanBoard: React.FC<Props> = ({
 
       {selectedCard && (
         <ProcessDetailsModal 
-          card={selectedCard} 
+          card={data.columns.flatMap(c => c.cards).find(c => c.id === selectedCard.id) || selectedCard} 
           columnId={(selectedCard as any).columnId}
           isOpen={!!selectedCard}
           onClose={() => setSelectedCard(null)}
           onUpdateCard={(updates) => updateCardDetails(selectedCard.id, updates)}
           onToggleTask={(taskId) => {
-            const newTasks = selectedCard.subTasks.map(t => 
-              t.id === taskId ? { ...t, completed: !t.completed } : t
-            );
-            updateCardDetails(selectedCard.id, { subTasks: newTasks });
+            const currentCard = data.columns.flatMap(c => c.cards).find(c => c.id === selectedCard.id) || selectedCard;
+            const task = currentCard.subTasks.find(t => t.id === taskId);
+            if (task) {
+              onToggleTask(taskId, !task.completed);
+            }
           }}
-          onAddCommunication={onAddCommunication}
           onAddAuditEntry={onAddAuditEntry}
+          groups={groups}
+          collaborators={collaborators}
         />
       )}
     </div>
