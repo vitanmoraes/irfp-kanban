@@ -18,10 +18,10 @@ export const useIRPFData = () => {
     if (IS_OFFLINE_MODE) {
       const saved = localStorage.getItem('irpf_kanban_test_data');
       const savedGroups = localStorage.getItem('irpf_kanban_groups');
-      
+
       if (saved) setData(JSON.parse(saved));
       if (savedGroups) setGroups(JSON.parse(savedGroups));
-      
+
       // Fallback para colaboradores locais em modo offline
       import('../data/collaborators').then(m => setCollaborators(m.COLLABORATORS));
       import('../data/groups').then(m => setGroups(m.EXECUTION_GROUPS));
@@ -30,9 +30,9 @@ export const useIRPFData = () => {
       return;
     }
 
-      try {
+    try {
       if (!silent) setLoading(true);
-      
+
       // 1. Buscar Grupos e Colaboradores
       const [groupsRes, collaboratorsRes] = await Promise.all([
         supabase.from('execution_groups').select('*').order('name'),
@@ -74,6 +74,8 @@ export const useIRPFData = () => {
               statusFinancial: p.status_financial,
               daysActive: p.days_active,
               responsible: p.responsible_id || 'Sistema',
+              groupId: p.group_id,
+              executors: p.executors || {},
               tags: p.tags || [],
               subTasks: p.sub_tasks || [],
               clientProfile: p.client_profile,
@@ -113,12 +115,12 @@ export const useIRPFData = () => {
         ...prev,
         columns: prev.columns.map(col => ({
           ...col,
-          cards: col.cards.map(card => 
+          cards: col.cards.map(card =>
             card.id === cardId ? { ...card, ...updates } : card
           )
         }))
       }));
-      
+
       // Salvar no localStorage após o próximo render (via useEffect ou manual)
       // Para simplificar agora, pegamos o estado atualizado no setData
       return;
@@ -144,7 +146,7 @@ export const useIRPFData = () => {
 
       const { error } = await supabase.from('irpf_processes').update(dbUpdates).eq('id', cardId);
       if (error) throw error;
-      fetchData(); 
+      fetchData(true);
     } catch (err: any) {
       console.error('Erro ao atualizar card:', err);
     }
@@ -190,7 +192,7 @@ export const useIRPFData = () => {
       const firstColumn = data.columns[0];
       const newData = {
         ...data,
-        columns: data.columns.map((col, idx) => 
+        columns: data.columns.map((col, idx) =>
           idx === 0 ? { ...col, cards: [newCard, ...col.cards] } : col
         )
       };
@@ -275,9 +277,9 @@ export const useIRPFData = () => {
         ...data,
         columns: data.columns.map(col => ({
           ...col,
-          cards: col.cards.map(card => 
-            card.id === cardId 
-              ? { ...card, communications: [entry, ...card.communications] } 
+          cards: col.cards.map(card =>
+            card.id === cardId
+              ? { ...card, communications: [entry, ...card.communications] }
               : card
           )
         }))
@@ -314,9 +316,9 @@ export const useIRPFData = () => {
         ...prev,
         columns: prev.columns.map(col => ({
           ...col,
-          cards: col.cards.map(card => 
-            card.id === cardId 
-              ? { ...card, auditTrail: [entry, ...(card.auditTrail || [])] } 
+          cards: col.cards.map(card =>
+            card.id === cardId
+              ? { ...card, auditTrail: [entry, ...(card.auditTrail || [])] }
               : card
           )
         }))
@@ -378,7 +380,7 @@ export const useIRPFData = () => {
           ...col,
           cards: col.cards.map(card => ({
             ...card,
-            subTasks: card.subTasks.map(task => 
+            subTasks: card.subTasks.map(task =>
               task.id === taskId ? { ...task, completed } : task
             )
           }))

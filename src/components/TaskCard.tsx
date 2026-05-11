@@ -26,26 +26,26 @@ interface Props {
 
 const DEADLINE_STYLES: Record<string, string> = {
   NO_PRAZO: 'text-emerald-400',
-  ATENCAO:  'text-amber-400',
+  ATENCAO: 'text-amber-400',
   ATRASADO: 'text-red-400',
 };
 
 const DEADLINE_LABELS: Record<string, string> = {
   NO_PRAZO: 'No prazo',
-  ATENCAO:  'Atenção',
+  ATENCAO: 'Atenção',
   ATRASADO: 'Atrasado',
 };
 
 const TECH_COLORS: Record<string, string> = {
   NAO_INICIADO: 'text-slate-500',
   EM_DIGITACAO: 'text-blue-400',
-  CONFERIDO:    'text-purple-400',
-  REVISADO:     'text-emerald-400',
+  CONFERIDO: 'text-purple-400',
+  REVISADO: 'text-emerald-400',
 };
 
 const CLIENT_COLORS: Record<string, string> = {
-  AGUARDANDO:  'text-amber-400',
-  APROVADO:    'text-emerald-400',
+  AGUARDANDO: 'text-amber-400',
+  APROVADO: 'text-emerald-400',
   QUESTIONADO: 'text-orange-400',
 };
 
@@ -58,29 +58,30 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
   const alert = getAlertStatus(card, columnId);
 
   const completedTasks = card.subTasks.filter(t => t.completed).length;
-  const totalTasks     = card.subTasks.length;
-  const progress       = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const totalTasks = card.subTasks.length;
+  const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
   // Mapeamento dinâmico do executor baseado na coluna atual do Kanban
   const stageToExecutorKey: Record<string, keyof NonNullable<IRPFCard['executors']>> = {
-    '1': 'preparation',
-    '2': 'preparation',
-    '3': 'preparation',
-    '4': 'typing',
-    '5': 'conference',
-    '6': 'analysis',
-    '9': 'transmission'
+    preparacao: 'preparation',
+    aguardando: 'preparation',
+    recepcao: 'preparation',
+    digitacao: 'typing',
+    conferir: 'conference',
+    analise: 'analysis',
+    planejamento: 'analysis',
+    transmissao: 'transmission',
   };
 
   const executorKey = stageToExecutorKey[columnId];
   // Prioridade: Executor da etapa técnica -> Fallback: Responsável Geral
-  const stageResponsibleId = (executorKey && card.executors && card.executors[executorKey]) 
-    ? card.executors[executorKey] 
+  const stageResponsibleId = (executorKey && card.executors && card.executors[executorKey])
+    ? card.executors[executorKey]
     : card.responsible;
-    
+
   const stageResponsible = collaborators.find(c => c.id === stageResponsibleId);
 
-  const isStuck    = card.daysActive > 7;
+  const isStuck = card.daysActive > 7;
   const isCritical = card.riskLevel === 'CRITICO' || card.riskLevel === 'ALTO';
 
   const pendingRequired = card.subTasks.filter(t => t.required && !t.completed).length;
@@ -99,8 +100,8 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
         whileHover={{ y: -3, boxShadow: '0 12px 24px rgba(0,0,0,0.25)' }}
         onClick={onClick}
         className={`glass-morphism p-4 rounded-xl cursor-grab active:cursor-grabbing group transition-all flex flex-col gap-2 relative overflow-hidden
-          ${isStuck    ? 'border border-amber-500/20'  : 'border border-white/5'}
-          ${isCritical ? 'border border-red-500/30'    : ''}
+          ${isStuck ? 'border border-amber-500/20' : 'border border-white/5'}
+          ${isCritical ? 'border border-red-500/30' : ''}
         `}
       >
         {/* Faixa de risco crítico */}
@@ -110,11 +111,10 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
 
         {/* Alerta de Comunicação */}
         {alert.level !== 'normal' && (
-          <div className={`mb-1 p-2 rounded-lg flex items-center gap-2 text-xs border ${
-            alert.level === 'danger' 
-              ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+          <div className={`mb-1 p-2 rounded-lg flex items-center gap-2 text-xs border ${alert.level === 'danger'
+              ? 'bg-red-500/10 text-red-400 border-red-500/20'
               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-          }`}>
+            }`}>
             <MessageSquare size={14} />
             <span className="font-medium">{alert.message}</span>
           </div>
@@ -131,11 +131,10 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
 
           <div className="flex flex-col items-end gap-1 shrink-0">
             {/* Tipo SIMPLIFICADA / COMPLETA */}
-            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold tracking-wider border ${
-              card.type === 'COMPLETA'
+            <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold tracking-wider border ${card.type === 'COMPLETA'
                 ? 'bg-purple-500/20 text-purple-300 border-purple-500/20'
                 : 'bg-blue-500/20 text-blue-300 border-blue-500/20'
-            }`}>
+              }`}>
               {card.type}
             </span>
 
@@ -153,17 +152,15 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
         {/* ---- Linha 2: Score + Risco ---- */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Complexidade */}
-          <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold tracking-wider ${
-            COMPLEXITY_COLORS[card.complexityScore.classification]
-          }`}>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold tracking-wider ${COMPLEXITY_COLORS[card.complexityScore.classification]
+            }`}>
             {COMPLEXITY_LABELS[card.complexityScore.classification]} ({card.complexityScore.total}pts)
           </span>
 
           {/* Risco */}
           {card.riskLevel !== 'BAIXO' && (
-            <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold tracking-wider flex items-center gap-0.5 ${
-              RISK_COLORS[card.riskLevel]
-            }`}>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded border font-bold tracking-wider flex items-center gap-0.5 ${RISK_COLORS[card.riskLevel]
+              }`}>
               <ShieldAlert size={9} />
               {RISK_LABELS[card.riskLevel]}
             </span>
@@ -216,9 +213,9 @@ export const TaskCard: React.FC<Props> = ({ card, columnId, onClick, onDelete, c
           <div className="flex flex-col items-center gap-0.5" title={`Financeiro: ${card.statusFinancial}`}>
             <DollarSign size={12} className={
               card.statusFinancial === 'PAGO' ? 'text-emerald-400' :
-              card.statusFinancial === 'GERADO' ? 'text-blue-400' :
-              card.statusFinancial === 'CORTESIA' ? 'text-slate-400' :
-              'text-slate-600'
+                card.statusFinancial === 'GERADO' ? 'text-blue-400' :
+                  card.statusFinancial === 'CORTESIA' ? 'text-slate-400' :
+                    'text-slate-600'
             } />
             <span className="text-[8px] text-slate-500 leading-none">Fin</span>
           </div>
