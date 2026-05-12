@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Column } from './Column';
-import { Search, Filter, AlertTriangle, Users, Clock, Keyboard, Send } from 'lucide-react';
+import { Search, AlertTriangle } from 'lucide-react';
 import { ProcessDetailsModal } from './ProcessDetailsModal';
-import type { IRPFCard, SubTask, IRPFAppState } from '../types';
+import type { IRPFCard, IRPFAppState } from '../types';
 
 interface Props {
   data: IRPFAppState;
@@ -11,7 +11,7 @@ interface Props {
   onDeleteCard: (cardId: string) => void;
   onAddCommunication: (cardId: string, entry: any) => void;
   onAddAuditEntry: (cardId: string, action: string, details?: string) => void;
-  onToggleTask: (taskId: string, completed: boolean) => void;
+
   onUpdateSubTask: (taskId: string, updates: any) => void;
   onAddSubTask: (cardId: string, task: any) => void;
   groups: any[];
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export const KanbanBoard: React.FC<Props> = ({ 
-  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry, onToggleTask, onUpdateSubTask, onAddSubTask, groups, collaborators
+  data, onMoveCard, onUpdateCard, onDeleteCard, onAddCommunication, onAddAuditEntry, onUpdateSubTask, onAddSubTask, groups, collaborators
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
@@ -161,13 +161,7 @@ export const KanbanBoard: React.FC<Props> = ({
           isOpen={!!selectedCard}
           onClose={() => setSelectedCard(null)}
           onUpdateCard={(updates) => updateCardDetails(selectedCard.id, updates)}
-          onToggleTask={(taskId) => {
-            const currentCard = data.columns.flatMap(c => c.cards).find(c => c.id === selectedCard.id) || selectedCard;
-            const task = currentCard.subTasks.find(t => t.id === taskId);
-            if (task) {
-              onToggleTask(taskId, !task.completed);
-            }
-          }}
+
           onUpdateSubTask={onUpdateSubTask}
           onAddSubTask={onAddSubTask}
           onAddAuditEntry={onAddAuditEntry}

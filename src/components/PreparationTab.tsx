@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { IRPFAppState, IRPFCard, SubTask } from '../types';
+import type { IRPFAppState, IRPFCard } from '../types';
 import { FileUp, Search, User, FileText, Send, CheckCircle2, Trash2, ClipboardList, Mail, ChevronDown, ChevronUp, Copy, Check, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,7 +46,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
     });
   };
 
-  const toggleGroupItems = (key: string, taskIds: string[], include: boolean) => {
+  const toggleGroupItems = (_key: string, taskIds: string[], include: boolean) => {
     setSelectedForMessage(prev => {
       const next = new Set(prev);
       taskIds.forEach(id => include ? next.add(id) : next.delete(id));
@@ -76,8 +76,6 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const cpfMatch = file.name.match(/\d{11}/);
-    let cpf = cpfMatch ? cpfMatch[0] : '';
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -115,67 +113,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
         extractedName = `Cliente ${formattedCpf.substring(0, 3)}...`;
       }
 
-      // ── Tabela de códigos de pagamento (cd_pagto) ─────────────────────────
-      const PAGTO_DESC: Record<number, { doc: string; ficha: string }> = {
-        1:  { doc: 'Recibo de Consulta Médica (Alopata)', ficha: 'SAUDE' },
-        2:  { doc: 'Recibo de Consulta Médica (Homeopata)', ficha: 'SAUDE' },
-        3:  { doc: 'Recibo de Dentista', ficha: 'SAUDE' },
-        4:  { doc: 'Recibo de Fisioterapeuta', ficha: 'SAUDE' },
-        5:  { doc: 'Recibo de Terapeuta Ocupacional', ficha: 'SAUDE' },
-        6:  { doc: 'Recibo de Fonoaudiólogo', ficha: 'SAUDE' },
-        7:  { doc: 'Recibo de Psicólogo', ficha: 'SAUDE' },
-        8:  { doc: 'Recibo de Psiquiatra', ficha: 'SAUDE' },
-        9:  { doc: 'Recibo de Acupunturista', ficha: 'SAUDE' },
-        10: { doc: 'Nota Fiscal de Hospital / Internação', ficha: 'SAUDE' },
-        11: { doc: 'Informe de Plano de Saúde', ficha: 'SAUDE' },
-        12: { doc: 'Nota Fiscal de Prótese Ortopédica/Dentária', ficha: 'SAUDE' },
-        13: { doc: 'Recibo de Nutricionista', ficha: 'SAUDE' },
-        14: { doc: 'Recibo de Cirurgião Plástico', ficha: 'SAUDE' },
-        15: { doc: 'Recibo de Profissional de Saúde', ficha: 'SAUDE' },
-        16: { doc: 'Comprovante de Mensalidade (Ensino Fundamental)', ficha: 'EDUCACAO' },
-        17: { doc: 'Comprovante de Mensalidade (Ensino Médio)', ficha: 'EDUCACAO' },
-        18: { doc: 'Comprovante de Mensalidade (Ensino Técnico)', ficha: 'EDUCACAO' },
-        19: { doc: 'Comprovante de Mensalidade (Ensino Superior)', ficha: 'EDUCACAO' },
-        20: { doc: 'Comprovante de Mensalidade (Pós-Graduação)', ficha: 'EDUCACAO' },
-        21: { doc: 'Comprovante de Mensalidade (Especialização)', ficha: 'EDUCACAO' },
-        22: { doc: 'Comprovante de Mensalidade (MBA)', ficha: 'EDUCACAO' },
-        23: { doc: 'Comprovante de Mensalidade (Doutorado)', ficha: 'EDUCACAO' },
-        24: { doc: 'Comprovante de Mensalidade (Mestrado)', ficha: 'EDUCACAO' },
-        25: { doc: 'Comprovante de Instrução', ficha: 'EDUCACAO' },
-        26: { doc: 'Comprovante de Previdência Social Oficial (INSS)', ficha: 'PREVIDENCIA' },
-        27: { doc: 'Informe de Previdência Privada (PGBL/VGBL)', ficha: 'PREVIDENCIA' },
-        28: { doc: 'Informe de FAPI', ficha: 'PREVIDENCIA' },
-        29: { doc: 'Comprovante de Pensão Alimentícia (Judicial)', ficha: 'PENSAO' },
-        30: { doc: 'Comprovante de Pensão (Cônjuge/Companheiro)', ficha: 'PENSAO' },
-        36: { doc: 'Informe de Previdência Complementar (PGBL/FUNPRESP)', ficha: 'PREVIDENCIA' },
-        41: { doc: 'Comprovante de Alimentos Compensatórios', ficha: 'PENSAO' },
-        43: { doc: 'Recibo de Doação a Partido Político', ficha: 'DOACOES' },
-        50: { doc: 'Recibo de Doação ao ECA', ficha: 'DOACOES' },
-        51: { doc: 'Recibo de Doação ao Fundo do Idoso', ficha: 'DOACOES' },
-        52: { doc: 'Recibo de Doação à Cultura', ficha: 'DOACOES' },
-        53: { doc: 'Recibo de Doação ao Esporte', ficha: 'DOACOES' },
-        54: { doc: 'Recibo de Doação à Saúde', ficha: 'DOACOES' },
-        55: { doc: 'Recibo de Doação Diretamente na Declaração', ficha: 'DOACOES' },
-        60: { doc: 'Recibo de Empregada Doméstica (INSS)', ficha: 'OUTROS' },
-        99: { doc: 'Comprovante de Pagamento', ficha: 'OUTROS' },
-      };
 
-      // ── Tabela de grupos de bens (cd_bem) ─────────────────────────────────
-      const BEM_GRUPO: Record<string, { label: string; ficha: string }> = {
-        '01': { label: 'Ações/FIIs/Cotas em Bolsa', ficha: 'BENS_BOLSA' },
-        '02': { label: 'Aplicação Financeira (CDB/RDB/Poupança)', ficha: 'BENS_FINANCEIROS' },
-        '03': { label: 'Renda Fixa (LCI/LCA/CRI/CRA/Tesouro)', ficha: 'BENS_FINANCEIROS' },
-        '04': { label: 'Bens Móveis (Veículo/Embarcação)', ficha: 'BENS_MOVEIS' },
-        '05': { label: 'Participação Societária (Empresa)', ficha: 'BENS_SOCIOS' },
-        '07': { label: 'JCP/Dividendos a Receber', ficha: 'BENS_JCP' },
-        '08': { label: 'Ativo Exterior', ficha: 'BENS_EXTERIOR' },
-        '09': { label: 'Saldo em Moeda Estrangeira', ficha: 'BENS_EXTERIOR' },
-        '10': { label: 'Dinheiro em Espécie', ficha: 'BENS_OUTROS' },
-        '11': { label: 'Ativo Financeiro no Exterior', ficha: 'BENS_EXTERIOR' },
-        '12': { label: 'Propriedade Intelectual', ficha: 'BENS_OUTROS' },
-        '14': { label: 'Imóvel Rural', ficha: 'BENS_RURAL' },
-        '99': { label: 'Outro Bem no Exterior', ficha: 'BENS_EXTERIOR' },
-      };
 
       // ── PASSO 1: pré-carregar mapa de dependentes chave→nome ─────────────
       // ── FUNÇÃO DE LIMPEZA DE NOMES ──
@@ -188,7 +126,10 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
       lines.forEach(line => {
         if (line.length < 13 || line.substring(0, 2) !== '25') return;
         const dep = parser.parseDependentes(line);
-        if (dep.chave && dep.nome) depMap[dep.chave] = cleanName(dep.nome);
+        if (dep.chave && dep.nome) {
+          const keyStr = String(dep.chave);
+          depMap[keyStr] = cleanName(String(dep.nome));
+        }
       });
 
       // ── PASSO 2-4: Gerar Checklist usando o novo Motor de Inteligência ──
@@ -215,7 +156,7 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
         hasCapitalGain: false, // Difícil detectar via DEC sem ficha 50
         hasJCP: lines.some(l => l.startsWith('86')),
         hasFinancing: false,
-        isHighNetWorth: currentAssets.gt(1000000)
+        isHighNetWorth: new Decimal(currentAssets || 0).gt(1000000)
       };
 
       // ── PASSO 5: Usar as tarefas geradas pelo motor ────────────────────────
@@ -224,10 +165,11 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
       // ── PASSO 6: Inicializar Novo Card com Inteligência ───────────────────
       const newCard: IRPFCard = {
         id: uuidv4(),
-        clientName: extractedName,
-        cpf: formattedCpf,
+        clientName: String(extractedName),
+        cpf: String(formattedCpf),
         phone: '', // Pode ser preenchido manualmente
-        type: (String(header?.tipoDeclaracao) as 'COMPLETA' | 'SIMPLIFICADA') || 'COMPLETA',
+        type: ((header as any)?.tipoDeclaracao) || 'COMPLETA',
+        billing: ((header as any)?.tipoDeclaracao) || 'COMPLETA',
         complexityScore: calculateComplexityScore(clientProfile),
         riskLevel: 'BAIXO',
         statusDoc: 'PENDENTE',
@@ -249,11 +191,12 @@ export const PreparationTab: React.FC<Props> = ({ data, onAddCard, onDeleteCard,
           currentYearAssets: Number(currentAssets.toString())
         },
         financial: {
-          modality: 'COMPLETA',
-          status: 'NAO_GERADO',
+          status: 'NAO_GERADO' as any,
+          modality: ((header as any)?.tipoDeclaracao) || 'COMPLETA',
           previousYearValue: 350,
           approvedValue: 0
         },
+        extraServices: [],
         communications: [],
         auditTrail: [{
           id: uuidv4(),

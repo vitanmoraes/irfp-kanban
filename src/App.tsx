@@ -114,7 +114,7 @@ function App() {
             onDeleteCard={deleteCard}
             onAddCommunication={addCommunication}
             onAddAuditEntry={addAuditEntry}
-            onToggleTask={updateSubTask}
+
             onUpdateSubTask={updateSubTask}
             onAddSubTask={addSubTask}
             groups={groups}

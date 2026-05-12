@@ -206,7 +206,7 @@ export const useIRPFData = () => {
   // 4. Adicionar Card
   const addCard = async (newCard: IRPFCard) => {
     if (IS_OFFLINE_MODE) {
-      const firstColumn = data.columns[0];
+
       const newData = {
         ...data,
         columns: data.columns.map((col, idx) =>

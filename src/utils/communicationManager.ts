@@ -25,7 +25,7 @@ export const COMMUNICATION_TEMPLATES: MessageTemplate[] = [
 ];
 
 export function calculateDaysInStage(card: IRPFCard): number {
-  const lastUpdate = new Date(card.updatedAt).getTime();
+  const lastUpdate = new Date(card.updatedAt || new Date()).getTime();
   const now = new Date().getTime();
   return Math.floor((now - lastUpdate) / (1000 * 60 * 60 * 24));
 }

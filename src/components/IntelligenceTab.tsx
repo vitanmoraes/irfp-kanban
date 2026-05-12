@@ -1,27 +1,39 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Sparkles, FileText, Download, ChevronRight, MessageSquare, BookOpen, ExternalLink, Lightbulb, X, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+
+import { 
+  BookOpen, MessageSquare, 
+  Sparkles, Send, Trash2, HelpCircle,
+  FileText, ChevronRight, ArrowLeft,
+  ShieldCheck, Lightbulb
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { INTELLIGENCE_SKILLS, QUICK_TIPS } from '../data/intelligenceSkills';
+
 import knowledgeIndex from '../data/knowledge_index.json';
 import { IRPF_KNOWLEDGE_BASE } from '../data/knowledgeBase';
+import type { ChatMessage } from '../types/chatTypes';
+import { sendIRPFChatMessage } from '../services/irpfChatService';
 
-interface SearchMatch {
-  filename: string;
-  title: string;
-  content: string;
-  page: string;
-  snippet: string;
-}
+const SUGGESTED_QUESTIONS = [
+  "Como declarar conta bancária no exterior?",
+  "Como tratar renda variável no IRPF?",
+  "Quais documentos solicitar para imóvel?",
+  "Como analisar variação patrimonial?",
+  "Quando usar declaração completa ou simplificada?",
+  "Como declarar participação societária?",
+  "Como tratar livro caixa?",
+  "O que observar em pró-labore e lucros?"
+];
 
 export const IntelligenceTab: React.FC = () => {
-  const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [knowledgeData, setKnowledgeData] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [viewingFile, setViewingFile] = useState<string | null>(null);
 
-  // Carregar todos os arquivos markdown na inicialização
+  const [viewingFile, setViewingFile] = useState<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Carregar todos os arquivos markdown na inicialização (para fallback e visualização)
   useEffect(() => {
     const loadKnowledge = async () => {
       try {
@@ -36,64 +48,63 @@ export const IntelligenceTab: React.FC = () => {
       } catch (error) {
         console.error("Erro ao carregar base de conhecimento:", error);
       } finally {
-        setIsLoading(false);
+
       }
     };
     loadKnowledge();
   }, []);
 
-  // Motor de busca exata sobre o conteúdo bruto
-  const searchResults = useMemo(() => {
-    if (search.length < 3) return [];
-    
-    const results: SearchMatch[] = [];
-    const query = search.toLowerCase();
+  // Auto-scroll para o final do chat
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
 
-    Object.entries(knowledgeData).forEach(([filename, content]) => {
-      const fileInfo = knowledgeIndex.find(f => f.filename === filename);
-      if (!fileInfo) return;
+  const handleSendMessage = async (text: string = input) => {
+    if (!text.trim() || isTyping) return;
 
-      // Dividir por páginas para dar contexto
-      const pages = content.split('## Página ');
-      pages.forEach((pageContent, idx) => {
-        if (pageContent.toLowerCase().includes(query)) {
-          const pageNum = idx === 0 ? "Início" : pageContent.split('\n')[0].trim();
-          const cleanPageContent = pageContent.split('\n').slice(1).join('\n');
-          
-          // Pegar um snippet ao redor do termo
-          const pos = cleanPageContent.toLowerCase().indexOf(query);
-          const start = Math.max(0, pos - 60);
-          const end = Math.min(cleanPageContent.length, pos + 100);
-          let snippet = cleanPageContent.substring(start, end);
-          if (start > 0) snippet = '...' + snippet;
-          if (end < cleanPageContent.length) snippet = snippet + '...';
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text,
+      createdAt: new Date().toISOString()
+    };
 
-          results.push({
-            filename,
-            title: fileInfo.title,
-            content: cleanPageContent,
-            page: pageNum,
-            snippet: snippet
-          });
-        }
-      });
-    });
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
 
-    return results.slice(0, 20); // Limitar a 20 resultados
-  }, [search, knowledgeData]);
+    try {
+      const response = await sendIRPFChatMessage(messages, text);
+      
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer,
+        createdAt: new Date().toISOString(),
+        sources: response.sources
+      };
 
-  const filteredSkills = INTELLIGENCE_SKILLS.filter(s => 
-    s.title.toLowerCase().includes(search.toLowerCase()) ||
-    s.description.toLowerCase().includes(search.toLowerCase())
-  );
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (error: any) {
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: `❌ **Erro:** ${error.message || 'Não foi possível obter resposta da IA.'}`,
+        createdAt: new Date().toISOString()
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
-  const filteredTips = QUICK_TIPS.filter(t => {
-    const matchesSearch = t.question.toLowerCase().includes(search.toLowerCase()) ||
-                         t.answer.toLowerCase().includes(search.toLowerCase());
-    if (!selectedCategory) return matchesSearch;
-    const skill = INTELLIGENCE_SKILLS.find(s => s.id === selectedCategory);
-    return matchesSearch && (skill ? (t as any).category === skill.category : true);
-  });
+  const clearChat = () => {
+    if (confirm('Deseja limpar todo o histórico da conversa?')) {
+      setMessages([]);
+    }
+  };
 
   if (viewingFile) {
     const fileInfo = knowledgeIndex.find(f => f.filename === viewingFile);
@@ -102,7 +113,7 @@ export const IntelligenceTab: React.FC = () => {
         <header className="p-4 border-b border-white/5 bg-slate-900/60 flex items-center justify-between">
           <button onClick={() => setViewingFile(null)} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
             <ArrowLeft size={18} />
-            <span className="font-medium">Voltar</span>
+            <span className="font-medium">Voltar ao Chat</span>
           </button>
           <div className="flex flex-col items-center">
             <h2 className="text-sm font-bold text-white">{fileInfo?.title}</h2>
@@ -114,7 +125,7 @@ export const IntelligenceTab: React.FC = () => {
         </header>
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
           <div className="max-w-4xl mx-auto bg-white/5 border border-white/10 rounded-3xl p-10 prose prose-invert prose-emerald">
-            <ReactMarkdown>{knowledgeData[viewingFile]}</ReactMarkdown>
+            <ReactMarkdown>{knowledgeData[viewingFile] || ''}</ReactMarkdown>
           </div>
         </div>
       </div>
@@ -122,200 +133,193 @@ export const IntelligenceTab: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0f172a] overflow-hidden">
-      {/* ── Header / Search ── */}
-      <header className="p-8 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -ml-32 -mb-32 pointer-events-none" />
-        
-        <div className="max-w-4xl mx-auto relative z-10">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-purple-500 rounded-2xl shadow-lg shadow-purple-500/20">
-              <Sparkles className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight outfit">Inteligência <span className="text-purple-400">IRPF</span></h1>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="text-slate-400 text-sm">Pesquisa exata em base de conhecimento Markdown.</p>
-                {isLoading && <Loader2 className="text-purple-400 animate-spin" size={14} />}
-              </div>
-            </div>
-          </div>
+    <div className="flex-1 flex flex-col h-full bg-[#0f172a] overflow-hidden relative">
+      {/* Background Decor */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-[100px] -mr-48 -mt-48 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -ml-32 -mb-32 pointer-events-none" />
 
-          <div className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-purple-400 transition-colors" size={20} />
-            <input 
-              type="text" 
-              placeholder="Pesquise termos exatos na legislação... (ex: 'isenção 20 mil', 'dividendos avenue')" 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-lg focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500/40 transition-all placeholder:text-slate-600"
-            />
-            {search && (
-              <button onClick={() => setSearch('')} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
-                <X size={18} />
-              </button>
-            )}
+      {/* ── Chat Header ── */}
+      <header className="p-6 border-b border-white/5 bg-slate-900/40 backdrop-blur-xl z-10 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div className="p-2.5 bg-purple-500 rounded-xl shadow-lg shadow-purple-500/20">
+            <Sparkles className="text-white" size={20} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight outfit">Assistente <span className="text-purple-400">Inteligente</span></h1>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Base de Conhecimento IRPF 2025</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {messages.length > 0 && (
+            <button 
+              onClick={clearChat}
+              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+              title="Limpar Conversa"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
+          <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            Online
           </div>
         </div>
       </header>
 
-      {/* ── Content ── */}
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-        <div className="max-w-7xl mx-auto space-y-12">
-          
-          {/* Tópicos Estratégicos (Novo) */}
-          {search.length < 3 && (
-            <section className="mb-12">
-               <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <ShieldCheck size={24} className="text-emerald-400" />
-                    Consultoria Estratégica
-                  </h2>
-                  <span className="text-xs text-slate-500 font-bold uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/5">Legislação 2025</span>
-               </div>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {IRPF_KNOWLEDGE_BASE.map(topic => (
-                    <div key={topic.id} className="p-6 glass-morphism rounded-[2rem] border border-white/5 hover:border-emerald-500/30 transition-all group flex flex-col">
-                       <div className="flex justify-between items-start mb-4">
-                          <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded uppercase tracking-tighter">{topic.category}</span>
-                          <ExternalLink size={16} className="text-slate-600 group-hover:text-emerald-400 transition-colors cursor-pointer" onClick={() => window.open(topic.link, '_blank')} />
-                       </div>
-                       <h3 className="text-lg font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">{topic.title}</h3>
-                       <p className="text-xs text-slate-400 leading-relaxed mb-6 line-clamp-3">{topic.summary}</p>
-                       
-                       <div className="mt-auto space-y-2">
-                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pontos de Atenção</p>
-                          {topic.criticalPoints.map((p, i) => (
-                            <div key={i} className="flex gap-2 items-start text-[10px] text-slate-300 bg-white/5 p-2 rounded-lg border border-white/5">
-                               <div className="w-1 h-1 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                               {p}
-                            </div>
-                          ))}
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </section>
-          )}
-
-          {/* Resultados da Busca Exata */}
-          <AnimatePresence>
-            {search.length >= 3 && (
-              <motion.section
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="space-y-6"
-              >
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <ShieldCheck size={20} className="text-emerald-400" />
-                    Resultados Oficiais (Exatos)
-                  </h2>
-                  <span className="text-xs text-slate-500">{searchResults.length} correspondências encontradas</span>
+      {/* ── Chat Content ── */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6"
+          >
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center max-w-2xl mx-auto space-y-8">
+                <div className="p-6 rounded-[2.5rem] bg-white/5 border border-white/10 shadow-2xl">
+                  <MessageSquare size={48} className="text-purple-400 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-xl font-bold text-white mb-2">Como posso ajudar hoje?</h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Faça perguntas sobre legislação de IRPF, investimentos no exterior, renda variável ou qualquer dúvida técnica.
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {searchResults.length > 0 ? (
-                    searchResults.map((result, i) => (
-                      <motion.div
-                        key={i}
-                        whileHover={{ x: 5 }}
-                        onClick={() => setViewingFile(result.filename)}
-                        className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1.5 bg-emerald-500/10 rounded text-emerald-400">
-                              <FileText size={14} />
-                            </div>
-                            <span className="text-sm font-bold text-white">{result.title}</span>
-                            <span className="text-[10px] bg-white/10 text-slate-400 px-1.5 py-0.5 rounded">Pág. {result.page}</span>
-                          </div>
-                          <ChevronRight size={16} className="text-slate-600 group-hover:text-white transition-colors" />
-                        </div>
-                        <p className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-emerald-500/30 pl-4 bg-emerald-500/5 py-2 rounded-r-xl">
-                          {result.snippet}
-                        </p>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <div className="p-12 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
-                      <p className="text-slate-500">Nenhum termo exato encontrado nos documentos originais.</p>
-                    </div>
-                  )}
-                </div>
-              </motion.section>
-            )}
-          </AnimatePresence>
-
-          {/* Módulos (Skills) e Dicas Rápidas (Só aparecem se não estiver buscando ou se houver pouca busca) */}
-          {search.length < 3 && (
-            <>
-              <section>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <BookOpen size={20} className="text-purple-400" />
-                    Módulos de Conhecimento
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {filteredSkills.map(skill => (
-                    <motion.div
-                      key={skill.id}
-                      whileHover={{ y: -5 }}
-                      onClick={() => setSelectedCategory(selectedCategory === skill.id ? null : skill.id)}
-                      className={`bg-white/5 border rounded-2xl p-6 transition-all cursor-pointer group ${selectedCategory === skill.id ? 'border-purple-500 bg-purple-500/10' : 'border-white/10 hover:bg-white/[0.08]'}`}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                  {SUGGESTED_QUESTIONS.map((q, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSendMessage(q)}
+                      className="p-4 text-left text-xs text-slate-400 bg-white/5 border border-white/5 rounded-2xl hover:border-purple-500/30 hover:bg-white/10 transition-all flex items-center gap-3 group"
                     >
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${skill.color}20`, color: skill.color }}>
-                        <skill.icon size={24} />
-                      </div>
-                      <h3 className="font-bold text-white mb-2">{skill.title}</h3>
-                      <p className="text-slate-400 text-sm leading-relaxed">{skill.description}</p>
-                    </motion.div>
+                      <HelpCircle size={14} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                      {q}
+                    </button>
                   ))}
                 </div>
-              </section>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Lightbulb size={20} className="text-amber-400" />
-                    Dicas Rápidas
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredTips.map((tip, i) => (
-                      <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-all">
-                        <h4 className="font-bold text-slate-200 mb-2 text-sm">{tip.question}</h4>
-                        <p className="text-xs text-slate-400 leading-relaxed">{tip.answer}</p>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div 
+                  key={msg.id}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[85%] ${msg.role === 'user' ? 'order-1' : 'order-2'}`}>
+                    <div className={`p-5 rounded-3xl border shadow-lg ${
+                      msg.role === 'user' 
+                        ? 'bg-purple-600 border-purple-500 text-white rounded-tr-none' 
+                        : 'bg-white/5 border-white/10 text-slate-200 rounded-tl-none'
+                    }`}>
+                      <div className="prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
-                    ))}
+
+                      {msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <BookOpen size={10} /> Fontes Consultadas
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {msg.sources.map((source, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setViewingFile(source.filename)}
+                                className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 text-[9px] text-slate-400 hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-2"
+                              >
+                                <FileText size={12} className="text-emerald-400" />
+                                {source.title} {source.page && `(Pág. ${source.page})`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[9px] text-slate-600 font-bold mt-1.5 block px-2 uppercase tracking-tighter">
+                      {msg.role === 'user' ? 'Você' : 'Assistente IRPF'} • {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
                 </div>
-
-                <div className="space-y-6">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <FileText size={20} className="text-emerald-400" />
-                    Biblioteca Original
-                  </h2>
-                  <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden divide-y divide-white/5">
-                    {knowledgeIndex.map((file, i) => (
-                      <div key={i} onClick={() => setViewingFile(file.filename)} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                          <FileText size={16} className="text-slate-500" />
-                          <span className="text-sm text-slate-300 group-hover:text-white">{file.title}</span>
-                        </div>
-                        <ChevronRight size={14} className="text-slate-600" />
-                      </div>
-                    ))}
+              ))
+            )}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="bg-white/5 border border-white/10 p-4 rounded-3xl rounded-tl-none shadow-lg">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce"></span>
                   </div>
                 </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
+
+          {/* Chat Input Area */}
+          <div className="p-6 bg-slate-900/60 border-t border-white/5">
+            <div className="max-w-4xl mx-auto relative group">
+              <input 
+                type="text" 
+                placeholder="Pergunte sobre IRPF 2025..." 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-6 pr-14 py-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500/40 transition-all placeholder:text-slate-600"
+              />
+              <button 
+                onClick={() => handleSendMessage()}
+                disabled={!input.trim() || isTyping}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 p-2.5 rounded-xl transition-all ${
+                  input.trim() && !isTyping 
+                    ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20 hover:scale-105' 
+                    : 'bg-white/5 text-slate-600'
+                }`}
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar: Biblioteca & Topics */}
+        <div className="w-80 border-l border-white/5 bg-slate-900/20 hidden xl:flex flex-col">
+          <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar flex-1">
+            <section>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <BookOpen size={14} /> Biblioteca Original
+              </h3>
+              <div className="space-y-2">
+                {knowledgeIndex.map((file, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setViewingFile(file.filename)}
+                    className="w-full p-3 text-left bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:border-white/10 transition-all group flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <FileText size={14} className="text-slate-500 shrink-0" />
+                      <span className="text-xs text-slate-300 truncate group-hover:text-white transition-colors">{file.title}</span>
+                    </div>
+                    <ChevronRight size={12} className="text-slate-600 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Lightbulb size={14} /> Consultoria Rápida
+              </h3>
+              <div className="space-y-3">
+                {IRPF_KNOWLEDGE_BASE.slice(0, 3).map(topic => (
+                  <div key={topic.id} className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                    <h4 className="text-[11px] font-bold text-white mb-1">{topic.title}</h4>
+                    <p className="text-[10px] text-slate-500 line-clamp-2">{topic.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+

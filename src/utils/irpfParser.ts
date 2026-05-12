@@ -28,9 +28,7 @@ export class IRPFParser {
     }
   }
 
-  private getLayout() {
-    return LAYOUT_DEFINITIONS[this.exercise] || LAYOUT_DEFINITIONS[2023];
-  }
+
 
   private parseField(line: string, start: number, end: number, type: 'C' | 'N' | 'D', decimals: number = 0): string | number | Decimal {
     try {
@@ -56,7 +54,8 @@ export class IRPFParser {
       nome: this.parseField(line, 40, 99, 'C'),
       impDevido: this.parseField(line, 191, 203, 'D', 2),
       isRetificadora: this.parseField(line, 21, 21, 'C') === 'S',
-      versao: this.parseField(line, 37, 39, 'N')
+      versao: this.parseField(line, 37, 39, 'N'),
+      tipoDeclaracao: this.parseField(line, 14, 15, 'C') === 'S' ? 'SIMPLIFICADA' : 'COMPLETA'
     };
   }
 

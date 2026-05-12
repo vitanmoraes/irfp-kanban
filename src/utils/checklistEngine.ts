@@ -92,8 +92,6 @@ export class ChecklistEngine {
     const overseasBrokers: Record<string, { assets: Set<string> }> = {};
     
     const incomeSources = new Set<string>();
-    const medicalItems = new Set<string>();
-    const educationItems = new Set<string>();
     const individualStocks = new Set<string>(); // Gr:3 Cod:01
     const individualShares = new Set<string>(); // Gr:3 Cod:02
     const individualRealEstate = new Set<string>();
@@ -168,7 +166,7 @@ export class ChecklistEngine {
           99: { 1: "Licença Especial", 2: "Título de Clube", 3: "Direito Autoral/Patente", 6: "Leasing", 99: "Outros bens" }
         };
 
-        const tipoNome = OFFICIAL_NAMES[grupo]?.[codInt] || `Bem (Cód:${cod})`;
+        const tipoNome = OFFICIAL_NAMES[Number(grupo)]?.[Number(codInt)] || `Bem (Cód:${cod})`;
         let foundInst = INSTITUTIONS.find(inst => desc.includes(inst));
 
         if (foundInst) {
@@ -213,11 +211,11 @@ export class ChecklistEngine {
       subTasks.push(this.createTask(`Extrato de Custódia ${name}`, 'BENS_BOLSA', 'Notas de Corretagem e Informe de Rendimentos.'));
     });
 
-    Object.entries(overseasBrokers).forEach(([name, data]) => {
+    Object.entries(overseasBrokers).forEach(([name, _data]) => {
       subTasks.push(this.createTask(`Extratos Exterior: ${name}`, 'BENS_EXTERIOR', 'Relatório de Ganhos e Dividendos.'));
     });
 
-    Object.entries(banks).forEach(([name, data]) => {
+    Object.entries(banks).forEach(([name, _data]) => {
       subTasks.push(this.createTask(`Informe de Rendimentos Banco ${name}`, 'BENS_FINANCEIROS'));
     });
 
